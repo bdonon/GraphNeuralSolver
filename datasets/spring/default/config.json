@@ -1,0 +1,1 @@
+{"data_dir": "datasets/spring/default", "rdm_seed": null, "gpu": false, "train_size": 1000, "val_size": 100, "test_size": 100, "n_nodes": 10, "n_edges": 15, "p_cons": 0.1, "a_distrib": ["uniform", 0.1, 1.0], "x_c_distrib": ["uniform", -10.0, 10.0], "b_distrib": ["uniform", 0.1, 1.0], "force_type": "springs"}
