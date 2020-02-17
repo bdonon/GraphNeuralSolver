@@ -27,6 +27,8 @@ parser = argparse.ArgumentParser()
 # Define training parameters
 parser.add_argument('--rdm_seed', type=int,
     help='Random seed. Random by default.')
+parser.add_argument('--gpu', type=int, default=None,
+    help='Use GPUs for data generation.')
 parser.add_argument('--max_iter', type=int, default=1000,
     help='Number of training steps')
 parser.add_argument('--minibatch_size', type=int, default=1000,
@@ -63,11 +65,16 @@ if __name__ == '__main__':
         #tf.random.set_seed(args.rdm_seed)
         np.random.seed(args.rdm_seed)
 
+    # Select visible GPU
+    if args.gpu is not None:
+        os.environ['CUDA_VISIBLE_DEVICES']=str(args.gpu)
+
     # Setup session
     config = tf.compat.v1.ConfigProto()
     config.gpu_options.allow_growth = True
     config.allow_soft_placement=True
-    config.log_device_placement=False
+    if args.gpu is not None:
+        config.gpu_options.allow_growth = True
     sess = tf.compat.v1.Session(config=config)
 
     # Setup hyperparameter search directory

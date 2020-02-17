@@ -23,7 +23,7 @@ parser.add_argument('--data_dir', type=str,
     help='Mandatory. Name of data directory that will be created.')
 parser.add_argument('--rdm_seed', type=int,
     help='Random seed for data generation.')
-parser.add_argument('--gpu', type=bool, default=False,
+parser.add_argument('--gpu', type=int, default=None,
     help='Use GPUs for data generation.')
 
 parser.add_argument('--train_size', type=int, default=1000,
@@ -71,12 +71,17 @@ if __name__ == '__main__':
     # Build the data directory
     os.makedirs(args.data_dir)
 
+    # Select visible GPU
+    if args.gpu is not None:
+        os.environ['CUDA_VISIBLE_DEVICES']=str(args.gpu)
+
     # Setup session
     config = tf.ConfigProto()
     config.allow_soft_placement=True
     config.log_device_placement=False
-    if args.gpu:
+    if args.gpu is not None:
         config.gpu_options.allow_growth = True
+
 
     # Create session
     sess = tf.Session(config=config)
