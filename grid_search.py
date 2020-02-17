@@ -29,6 +29,8 @@ parser.add_argument('--rdm_seed', type=int,
     help='Random seed. Random by default.')
 parser.add_argument('--gpu', type=int, default=None,
     help='Use GPUs for data generation.')
+parser.add_argument('--profile', type=bool, default=False,
+    help='Computational graph profiling, for debug purpose.')
 parser.add_argument('--max_iter', type=int, default=1000,
     help='Number of training steps')
 parser.add_argument('--minibatch_size', type=int, default=1000,
@@ -166,7 +168,8 @@ if __name__ == '__main__':
             discount=discount, 
             beta=beta,
             data_directory=args.data_directory,
-            save_step=args.track_validation)
+            save_step=args.track_validation,
+            profile=args.profile)
 
         # Evaluate model
         current_val_loss = model.evaluate(mode='val',

@@ -457,7 +457,8 @@ class GraphNeuralSolver:
         discount=0.9, 
         beta=0.1,
         data_directory='data/',
-        save_step=None):
+        save_step=None,
+        profile=False):
         """
         Performs a training process while keeping track of the validation score
         """
@@ -470,6 +471,8 @@ class GraphNeuralSolver:
         logging.info('        Beta : {}'.format(beta))
         logging.info('        Training data : {}'.format(data_directory))
         logging.info('        Saving model every {} iterations'.format(save_step))
+        if profile:
+            logging.info('        Profiling...')
 
         # Change dataset
         self.sess.run(self.training_init_op)
@@ -490,6 +493,11 @@ class GraphNeuralSolver:
         # Copy the latest training iteration of the model
         starting_point = copy.copy(self.current_train_iter)
 
+        # If profiling, then initialize useful variables
+        if profile:
+            options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+            run_metadata = tf.RunMetadata()
+            profile_path = os.path.join(self.directory, 'profile')
 
         # Training loop
         for i in tqdm(range(starting_point, starting_point+max_iter)):
@@ -498,7 +506,14 @@ class GraphNeuralSolver:
             self.current_train_iter = i
 
             # Perform SGD step
-            self.sess.run(self.opt_op)
+            if profile and i>starting_point:
+                self.sess.run(self.opt_op, options=options, run_metadata=run_metadata)
+                fetched_timeline = timeline.Timeline(run_metadata.step_stats)
+                chrome_trace = fetched_timeline.generate_chrome_trace_format()
+                with open(profile_path+'_{}.json'.format(i), 'w') as f:
+                    f.write(chrome_trace)
+            else:
+                self.sess.run(self.opt_op)
 
             # Store final loss in a summary
             self.summary = self.sess.run(self.merged_summary_op)
