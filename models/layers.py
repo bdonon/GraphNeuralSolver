@@ -403,7 +403,8 @@ class EquilibriumViolation:
         proxy_difference = tf.matmul(inverse_jacobian, error_dummy) # tf.float32, [n_samples, d_F, n_nodes, 1]
 
         # Compute the l2 norm for each node and each d_F dimensions, and take the average for the dataset
-        loss = tf.reduce_mean(tf.reduce_sum(proxy_difference**2, axis=[1,2]))   
+        #loss = tf.reduce_mean(tf.reduce_sum(proxy_difference**2, axis=[1,2]))
+        loss = tf.reduce_mean(tf.reduce_mean(proxy_difference**2, axis=[1,2]))   
                                                                     # tf.float32, [1]
 
         return loss, error, jacobian, proxy_difference
