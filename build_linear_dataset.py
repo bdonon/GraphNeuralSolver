@@ -9,6 +9,7 @@ A is described as a sparse matrix, and B and X as vectors
 import os
 import sys
 import json
+import tqdm
 import shutil
 import argparse
 
@@ -52,6 +53,66 @@ parser.add_argument('--b_distrib', default=['uniform', 0.1, 1.], nargs='+',
 
 parser.add_argument('--force_type', type=str, default='springs',
     help='Interaction force type. Spring-like by default')
+
+
+def np_to_tfrecords(A, B, X, file_path_prefix, verbose=True):
+    """
+    author : "Sangwoong Yoon"
+    """
+    def _dtype_feature(ndarray):
+        """match appropriate tf.train.Feature class with dtype of ndarray. """
+        assert isinstance(ndarray, np.ndarray)
+        dtype_ = ndarray.dtype
+        if dtype_ == np.float64 or dtype_ == np.float32:
+            return lambda array: tf.train.Feature(float_list=tf.train.FloatList(value=array))
+        elif dtype_ == np.int64:
+            return lambda array: tf.train.Feature(int64_list=tf.train.Int64List(value=array))
+        else:  
+            raise ValueError("The input should be numpy ndarray. \
+                               Instaed got {}".format(ndarray.dtype))
+            
+    assert isinstance(A, np.ndarray)
+    assert len(A.shape) == 2
+    
+    assert isinstance(B, np.ndarray)
+    assert len(B.shape) == 2
+    
+    assert isinstance(X, np.ndarray)
+    assert len(X.shape) == 2
+    
+    # load appropriate tf.train.Feature class depending on dtype
+    dtype_feature_a = _dtype_feature(A)
+    dtype_feature_b = _dtype_feature(B)
+    dtype_feature_x = _dtype_feature(X)      
+        
+    # Generate tfrecord writer
+    result_tf_file = file_path_prefix + '.tfrecords'
+    writer = tf.python_io.TFRecordWriter(result_tf_file)
+    if verbose:
+        print("Serializing {:d} examples into {}".format(X.shape[0], result_tf_file))
+        
+    # iterate over each sample,
+    # and serialize it as ProtoBuf.
+    for idx in tqdm.tqdm(range(A.shape[0])):
+        a = A[idx]
+        b = B[idx]
+        x = X[idx]
+        
+        d_feature = {}
+        d_feature['A'] = dtype_feature_a(a)
+        d_feature['B'] = dtype_feature_b(b)
+        d_feature['X'] = dtype_feature_x(x)
+        
+            
+        features = tf.train.Features(feature=d_feature)
+        example = tf.train.Example(features=features)
+        serialized = example.SerializeToString()
+        writer.write(serialized)
+    
+    if verbose:
+        print("Writing {} done!".format(result_tf_file))
+
+
 
 
 if __name__ == '__main__':
@@ -112,9 +173,21 @@ if __name__ == '__main__':
     for mode in n_samples:
         sess.run(data_generator.n_samples.assign(n_samples[mode]))
         A, B, X = sess.run([data_generator.A, data_generator.B, data_generator.X])
+
+        # Save numpy files
         np.save(os.path.join(args.data_dir, 'A_'+mode+'.npy'), A)
         np.save(os.path.join(args.data_dir, 'B_'+mode+'.npy'), B)
         np.save(os.path.join(args.data_dir, 'X_'+mode+'.npy'), X)
+
+        # Convert to .tfrecords
+        A_flat = np.reshape(A, [n_samples[mode], -1])
+        B_flat = np.reshape(B, [n_samples[mode], -1])
+        X_flat = np.reshape(X, [n_samples[mode], -1])
+
+        np_to_tfrecords(A_flat, B_flat, X_flat, os.path.join(args.data_dir, mode), 
+            verbose=True)
+
+
 
     # Store dataset characteristics in a dict
     dataset_params = {
