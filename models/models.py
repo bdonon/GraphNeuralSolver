@@ -463,7 +463,7 @@ class GraphNeuralSolver:
                 self.sess.run(self.opt_op)
 
             # Store final loss in a summary
-            self.summary = self.sess.run(self.merged_summary_op, feed_dict=feed_dict)
+            self.summary = self.sess.run(self.merged_summary_op)
             self.training_writer.add_summary(self.summary, self.current_train_iter)
 
             # Periodically log metrics and save model
