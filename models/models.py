@@ -542,16 +542,16 @@ class GraphNeuralSolver:
             if ((save_step is not None) & (i % save_step == 0)) or (i == starting_point+max_iter-1):
 
                 # Get minibatch train loss
-                loss_final_train = self.sess.run(self.loss_final, feed_dict={self.A:A_train, self.B:B_train})
+                loss_final_train = self.sess.run(self.loss_final, feed_dict={self.A:A_train[:minibatch_size], self.B:B_train[:minibatch_size]})
 
                 # # Change source data to validation
                 # self.sess.run(self.validation_init_op)
 
                 # Get minibatch val loss
-                loss_final_val = self.sess.run(self.loss_final, feed_dict={self.A:A_val, self.B:B_val})
+                loss_final_val = self.sess.run(self.loss_final, feed_dict={self.A:A_val[:minibatch_size], self.B:B_val[:minibatch_size]})
 
                 # Store final loss in validation
-                self.summary = self.sess.run(self.merged_summary_op, feed_dict={self.A:A_val, self.B:B_val})
+                self.summary = self.sess.run(self.merged_summary_op, feed_dict={self.A:A_val[:minibatch_size], self.B:B_val[:minibatch_size]})
                 self.validation_writer.add_summary(self.summary, self.current_train_iter)
 
                 # # Change source data to validation
