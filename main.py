@@ -33,6 +33,8 @@ parser.add_argument('--max_iter', type=int, default=1000000,
     help='Number of training steps')
 parser.add_argument('--minibatch_size', type=int, default=10,
     help='Size of each minibatch')
+parser.add_argument('--newton_raphson', type=bool, default=True,
+    help='Newton-Raphson loss')
 parser.add_argument('--learning_rate', type=float, default=1e-3,
     help='Learning rate')
 parser.add_argument('--discount', type=float, default=0.9,
@@ -138,6 +140,7 @@ if __name__ == '__main__':
             input_dim=1,
             output_dim=1,
             minibatch_size=args.minibatch_size,
+            nr=args.newton_raphson,
             name='gns',
             directory=result_dir,
             default_data_directory=args.data_directory,

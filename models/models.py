@@ -24,6 +24,7 @@ class GraphNeuralSolver:
         output_dim=1,
         edge_dim=1,
         minibatch_size=10,
+        nr=True,
         name='graph_neural_solver',
         directory='./',
         model_to_restore=None,
@@ -38,6 +39,7 @@ class GraphNeuralSolver:
         self.input_dim = input_dim
         self.edge_dim = edge_dim
         self.minibatch_size = minibatch_size
+        self.nr = True
         self.name = name
         self.directory = directory
         self.current_train_iter = 0
@@ -101,28 +103,28 @@ class GraphNeuralSolver:
                 latent_dimension=self.output_dim+self.latent_dimension,
                 hidden_layers=self.hidden_layers,
                 name=self.name+'_correction_block_{}'.format(update),
-                input_dim=4*(self.latent_dimension+self.output_dim)+2*self.input_dim
+                input_dim=4*(self.latent_dimension+self.output_dim)+self.input_dim
             )
             self.phi_from[str(update)] = FullyConnected(
                 non_lin=self.non_lin,
                 latent_dimension=self.output_dim+self.latent_dimension,
                 hidden_layers=self.hidden_layers,
                 name=self.name+'_phi_from_{}'.format(update),
-                input_dim=2*(self.latent_dimension+self.output_dim)+2*self.edge_dim
+                input_dim=2*(self.latent_dimension+self.output_dim)+self.edge_dim
             )
             self.phi_to[str(update)] = FullyConnected(
                 non_lin=self.non_lin,
                 latent_dimension=self.output_dim+self.latent_dimension,
                 hidden_layers=self.hidden_layers,
                 name=self.name+'_phi_to_{}'.format(update),
-                input_dim=2*(self.latent_dimension+self.output_dim)+2*self.edge_dim
+                input_dim=2*(self.latent_dimension+self.output_dim)+self.edge_dim
             )
             self.phi_loop[str(update)] = FullyConnected(
                 non_lin=self.non_lin,
                 latent_dimension=self.output_dim+self.latent_dimension,
                 hidden_layers=self.hidden_layers,
                 name=self.name+'_phi_loop_{}'.format(update),
-                input_dim=2*(self.latent_dimension+self.output_dim)+2*self.edge_dim
+                input_dim=2*(self.latent_dimension+self.output_dim)+self.edge_dim
             )
             # self.phi_normalizer[str(update)] = FullyConnected(
             #     hidden_layers=1,
@@ -259,7 +261,7 @@ class GraphNeuralSolver:
             self.H_to = custom_gather(self.H[str(update)], self.indices_to)
 
             # Concatenate all the inputs of the phi neural network
-            self.Phi_input = tf.concat([self.H_from, self.H_to, tf.math.log(tf.abs(self.A_ij)+1e-10), tf.math.sign(self.A_ij)], axis=2)
+            self.Phi_input = tf.concat([self.H_from, self.H_to, self.A_ij], axis=2)
 
             # Normalize the input using batch norm. A reshaping step is required for batch norm to work properly, but does not affect dimensions
             #self.Phi_input = tf.reshape(self.Phi_input, [self.minibatch_size_tf * self.num_edges, 2*(self.latent_dimension+self.output_dim)+2*self.edge_dim])
@@ -290,8 +292,7 @@ class GraphNeuralSolver:
             # Concatenate all the inputs of the correction neural network
             self.correction_input = tf.concat([
                 self.H[str(update)],
-                tf.math.log(tf.abs(self.B)+1e-10), 
-                tf.math.sign(self.B),
+                self.B,
                 self.Phi_from_sum,
                 self.Phi_to_sum,
                 self.Phi_loop_sum], axis=2)
@@ -309,40 +310,40 @@ class GraphNeuralSolver:
             # Decode the first "output_dim" components of H
             self.X[str(update+1)] = self.D(self.H[str(update+1)][:,:,:self.output_dim])
 
-            # Compute KL divergence between the input of each neural network a gaussian
-            self.mean_phi_norm =  tf.reduce_mean(self.Phi_input_norm[str(update)], axis=[1,2])
-            self.mean_corr_norm =  tf.reduce_mean(self.correction_input_norm[str(update)], axis=[1,2])
+            # # Compute KL divergence between the input of each neural network a gaussian
+            # self.mean_phi_norm =  tf.reduce_mean(self.Phi_input_norm[str(update)], axis=[1,2])
+            # self.mean_corr_norm =  tf.reduce_mean(self.correction_input_norm[str(update)], axis=[1,2])
 
-            self.centered_phi_norm = self.Phi_input_norm[str(update)] - tf.reduce_mean(self.Phi_input_norm[str(update)], axis=[0,1], keepdims=True)
-            self.centered_phi_norm = tf.expand_dims(self.centered_phi_norm, -1)
-            self.centered_phi_norm_T = tf.transpose(self.centered_phi_norm, [0,1,3,2])
+            # self.centered_phi_norm = self.Phi_input_norm[str(update)] - tf.reduce_mean(self.Phi_input_norm[str(update)], axis=[0,1], keepdims=True)
+            # self.centered_phi_norm = tf.expand_dims(self.centered_phi_norm, -1)
+            # self.centered_phi_norm_T = tf.transpose(self.centered_phi_norm, [0,1,3,2])
 
-            self.centered_corr_norm = self.correction_input_norm[str(update)] - tf.reduce_mean(self.correction_input_norm[str(update)], axis=[0,1], keepdims=True)
-            self.centered_corr_norm = tf.expand_dims(self.centered_corr_norm, -1)
-            self.centered_corr_norm_T = tf.transpose(self.centered_corr_norm, [0,1,3,2])
+            # self.centered_corr_norm = self.correction_input_norm[str(update)] - tf.reduce_mean(self.correction_input_norm[str(update)], axis=[0,1], keepdims=True)
+            # self.centered_corr_norm = tf.expand_dims(self.centered_corr_norm, -1)
+            # self.centered_corr_norm_T = tf.transpose(self.centered_corr_norm, [0,1,3,2])
 
-            self.correlation_mat_phi = tf.reduce_mean(tf.matmul(self.centered_phi_norm, self.centered_phi_norm_T), axis=[0,1])
-            self.correlation_mat_corr = tf.reduce_mean(tf.matmul(self.centered_corr_norm, self.centered_corr_norm_T), axis=[0,1])
+            # self.correlation_mat_phi = tf.reduce_mean(tf.matmul(self.centered_phi_norm, self.centered_phi_norm_T), axis=[0,1])
+            # self.correlation_mat_corr = tf.reduce_mean(tf.matmul(self.centered_corr_norm, self.centered_corr_norm_T), axis=[0,1])
 
-            self.correlation_mat_phi_trace = tf.linalg.trace(self.correlation_mat_phi)
-            self.correlation_mat_corr_trace = tf.linalg.trace(self.correlation_mat_corr)
+            # self.correlation_mat_phi_trace = tf.linalg.trace(self.correlation_mat_phi)
+            # self.correlation_mat_corr_trace = tf.linalg.trace(self.correlation_mat_corr)
 
-            self.correlation_mat_phi_logdet = tf.reduce_sum(tf.math.log(tf.linalg.diag_part(self.correlation_mat_phi)))
-            self.correlation_mat_corr_logdet = tf.reduce_sum(tf.math.log(tf.linalg.diag_part(self.correlation_mat_corr)))
+            # self.correlation_mat_phi_logdet = tf.reduce_sum(tf.math.log(tf.linalg.diag_part(self.correlation_mat_phi)))
+            # self.correlation_mat_corr_logdet = tf.reduce_sum(tf.math.log(tf.linalg.diag_part(self.correlation_mat_corr)))
 
-            self.loss_distrib[str(update+1)] = tf.reduce_sum(self.mean_phi_norm**2) + tf.reduce_sum(self.mean_corr_norm**2) + \
-                self.correlation_mat_phi_trace + self.correlation_mat_corr_trace \
-                - self.correlation_mat_phi_logdet - self.correlation_mat_corr_logdet
+            # self.loss_distrib[str(update+1)] = tf.reduce_sum(self.mean_phi_norm**2) + tf.reduce_sum(self.mean_corr_norm**2) + \
+            #     self.correlation_mat_phi_trace + self.correlation_mat_corr_trace \
+            #     - self.correlation_mat_phi_logdet - self.correlation_mat_corr_logdet
 
             # Compute the violation of the desired equation
-            self.loss[str(update+1)], self.error[str(update+1)], self.jacobian[str(update+1)], self.proxy_diff[str(update+1)] = self.loss_function(self.X[str(update+1)], self.A, self.B)
+            self.loss[str(update+1)], self.error[str(update+1)], self.jacobian[str(update+1)], self.proxy_diff[str(update+1)] = self.loss_function(self.X[str(update+1)], self.A, self.B, self.nr)
             tf.compat.v1.summary.scalar("loss_{}".format(update+1), self.loss[str(update+1)])
 
             # Compute the discounted loss
             if self.total_loss is None:
-                self.total_loss = (self.loss[str(update+1)]+self.beta*self.loss_distrib[str(update+1)]) * self.discount**(self.correction_updates-1-update)
+                self.total_loss = self.loss[str(update+1)] * self.discount**(self.correction_updates-1-update)
             else:
-                self.total_loss += (self.loss[str(update+1)]+self.beta*self.loss_distrib[str(update+1)]) * self.discount**(self.correction_updates-1-update)
+                self.total_loss += self.loss[str(update+1)] * self.discount**(self.correction_updates-1-update)
 
         # Get the final prediction and the final loss
         self.X_final = self.X[str(self.correction_updates)]
@@ -384,6 +385,7 @@ class GraphNeuralSolver:
         """
 
         logging.info('    Configuration :')
+        logging.info('        Storing model in  : '+self.directory)
         logging.info('        Latent dimensions : {}'.format(self.latent_dimension))
         logging.info('        Number of hidden layers per block : {}'.format(self.hidden_layers))
         logging.info('        Number of correction updates : {}'.format(self.correction_updates))
@@ -392,6 +394,7 @@ class GraphNeuralSolver:
         logging.info('        Output dimension : {}'.format(self.output_dim))
         logging.info('        Edge dimension : {}'.format(self.edge_dim))
         logging.info('        Minibatch size : {}'.format(self.minibatch_size))
+        logging.info('        Newton-Raphson loss : {}'.format(self.nr))
         logging.info('        Current training iteration : {}'.format(self.current_train_iter))
         logging.info('        Model name : ' + self.name)
 
@@ -408,6 +411,7 @@ class GraphNeuralSolver:
         self.input_dim = config['input_dim']
         self.edge_dim = config['edge_dim']
         self.minibatch_size = config['minibatch_size']
+        self.nr = config['nr']
         self.name = config['name']
         self.directory = config['directory']
         self.current_train_iter = config['current_train_iter']
@@ -427,6 +431,7 @@ class GraphNeuralSolver:
             'input_dim': self.input_dim,
             'edge_dim': self.edge_dim,
             'minibatch_size': self.minibatch_size,
+            'nr': self.nr,
             'name': self.name,
             'directory': self.directory,
             'current_train_iter': self.current_train_iter

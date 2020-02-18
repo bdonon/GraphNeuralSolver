@@ -374,7 +374,7 @@ class EquilibriumViolation:
 
 
 
-    def __call__(self, X, A, B):
+    def __call__(self, X, A, B, nr=True):
         """
         Computes a surrogate for the distance between our prediction and the ground truth.
         This surrogate is exact in the case of linear systems.
@@ -403,20 +403,24 @@ class EquilibriumViolation:
         # Transpose and add dummy dim the error for matrix compatibility
         error_transpose = tf.transpose(error, [0,2,1])              # tf.float32, [n_samples, d_F, n_nodes]
         error_dummy = tf.expand_dims(error_transpose, -1)           # tf.float32, [n_samples, d_F, n_nodes, 1]
-        error_dummy_flat = tf.reshape(error_dummy, [-1, n_nodes, 1])                             # tf.float32, [n_samples * d_F, n_nodes, 1]
+        error_dummy_flat = tf.reshape(error_dummy, [-1, n_nodes, 1])                             
+                                                                    # tf.float32, [n_samples * d_F, n_nodes, 1]
 
         # Inverse the jacobian
         jacobian_flat = tf.reshape(jacobian, [-1, n_nodes, n_nodes])
                                                                     # tf.float32, [n_samples * d_F, n_nodes, n_nodes]
-        inverse_jacobian_flat = tf.linalg.inv(jacobian_flat)             # tf.float32, [n_samples * d_F, n_nodes, n_nodes]    
+        inverse_jacobian_flat = tf.linalg.inv(jacobian_flat)        # tf.float32, [n_samples * d_F, n_nodes, n_nodes]    
 
         # Compute loss
-        proxy_difference_flat = tf.matmul(inverse_jacobian_flat, error_dummy_flat) # tf.float32, [n_samples * d_F, n_nodes, 1]
-        proxy_difference = tf.reshape(proxy_difference_flat, [n_samples, d_F, n_nodes, 1])# tf.float32, [n_samples, d_F, n_nodes, 1]
+        proxy_difference_flat = tf.matmul(inverse_jacobian_flat, error_dummy_flat) 
+                                                                    # tf.float32, [n_samples * d_F, n_nodes, 1]
+        proxy_difference = tf.reshape(proxy_difference_flat, [n_samples, d_F, n_nodes, 1])
+                                                                    # tf.float32, [n_samples, d_F, n_nodes, 1]
 
-        # Compute the l2 norm for each node and each d_F dimensions, and take the average for the dataset
-        #loss = tf.reduce_mean(tf.reduce_sum(proxy_difference**2, axis=[1,2]))
-        loss = tf.reduce_mean(tf.reduce_mean(proxy_difference**2, axis=[1,2]))   
-                                                                    # tf.float32, [1]
+        # Compute the l2 norm for each node, and take the average for the dataset
+        if nr:
+            loss = tf.reduce_mean(proxy_difference**2)              # tf.float32, [1]
+        else:
+            loss = tf.reduce_mean(error**2)                         # tf.float32, [1]
 
         return loss, error, jacobian, proxy_difference
