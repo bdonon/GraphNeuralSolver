@@ -194,7 +194,7 @@ class FullyConnected:
 
             # Initialize weight matrix
             self.W[str(layer)] = tf.compat.v1.get_variable(name='W_'+self.name+'_{}'.format(layer),
-                shape=[1, left_dim, right_dim],
+                shape=[left_dim, right_dim],
                 initializer=tf.contrib.layers.xavier_initializer(dtype=tf.float32, uniform=False, seed=2),
                 trainable=True,
                 dtype=tf.float32)
@@ -202,7 +202,7 @@ class FullyConnected:
 
             # Initialize bias vector
             self.b[str(layer)] = tf.compat.v1.get_variable(name='b_'+self.name+'_{}'.format(layer),
-                shape=[1, 1, right_dim],
+                shape=[1, right_dim],
                 initializer=tf.contrib.layers.xavier_initializer(dtype=tf.float32, uniform=False, seed=2),
                 trainable=True,
                 dtype=tf.float32)
@@ -213,6 +213,11 @@ class FullyConnected:
         """
         Builds the computational graph.
         """
+        n_samples = tf.shape(h)[0]
+        n_elem = tf.shape(h)[1]
+        d = tf.shape(h)[2]
+
+        h = tf.reshape(h, [-1, left_dim])
 
         for layer in range(self.hidden_layers):
             # Iterate over all layers
@@ -224,7 +229,7 @@ class FullyConnected:
             else:
                 h = self.non_lin(tf.matmul(h, self.W[str(layer)])+ self.b[str(layer)])
 
-        return h
+        return tf.reshape(h, [n_samples, n_elem, -1])
 
 class EquilibriumViolation:
     """
