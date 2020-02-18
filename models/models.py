@@ -461,7 +461,7 @@ class GraphNeuralSolver:
         learning_rate=3e-4, 
         discount=0.9, 
         beta=0.1,
-        data_directory='data/',
+        data_directory='datasets/spring/default',
         save_step=None,
         profile=False):
         """
@@ -481,6 +481,14 @@ class GraphNeuralSolver:
 
         # Change dataset
         self.sess.run(self.training_init_op)
+
+        # Import train data
+        A_train = np.load(os.path.join(data_directory, 'A_train.npy'))
+        B_train = np.load(os.path.join(data_directory, 'B_train.npy'))
+
+        # Import val data
+        A_val = np.load(os.path.join(data_directory, 'A_val.npy'))
+        B_val = np.load(os.path.join(data_directory, 'B_val.npy'))
 
         # Build writer dedicated to training for Tensorboard
         self.training_writer = tf.compat.v1.summary.FileWriter(
@@ -510,38 +518,44 @@ class GraphNeuralSolver:
             # Store current training step, so that it's always up to date
             self.current_train_iter = i
 
+            # Build feed_dict
+            feed_dict = {
+                self.A: A_train[:minibatch_size],
+                self.B: B_train[:minibatch_size],
+            }
+
             # Perform SGD step
             if profile and i>starting_point:
-                self.sess.run(self.opt_op, options=options, run_metadata=run_metadata)
+                self.sess.run(self.opt_op, options=options, run_metadata=run_metadata, feed_dict=feed_dict)
                 fetched_timeline = timeline.Timeline(run_metadata.step_stats)
                 chrome_trace = fetched_timeline.generate_chrome_trace_format()
                 with open(profile_path+'_{}.json'.format(i), 'w') as f:
                     f.write(chrome_trace)
             else:
-                self.sess.run(self.opt_op)
+                self.sess.run(self.opt_op, feed_dict=feed_dict)
 
             # Store final loss in a summary
-            self.summary = self.sess.run(self.merged_summary_op)
+            self.summary = self.sess.run(self.merged_summary_op, feed_dict=feed_dict)
             self.training_writer.add_summary(self.summary, self.current_train_iter)
 
             # Periodically log metrics and save model
             if ((save_step is not None) & (i % save_step == 0)) or (i == starting_point+max_iter-1):
 
                 # Get minibatch train loss
-                loss_final_train = self.sess.run(self.loss_final)
+                loss_final_train = self.sess.run(self.loss_final, feed_dict={self.A:A_train, self.B:B_train})
 
-                # Change source data to validation
-                self.sess.run(self.validation_init_op)
+                # # Change source data to validation
+                # self.sess.run(self.validation_init_op)
 
                 # Get minibatch val loss
-                loss_final_val = self.sess.run(self.loss_final)
+                loss_final_val = self.sess.run(self.loss_final, feed_dict={self.A:A_val, self.B:B_val})
 
                 # Store final loss in validation
-                self.summary = self.sess.run(self.merged_summary_op)
+                self.summary = self.sess.run(self.merged_summary_op, feed_dict={self.A:A_val, self.B:B_val})
                 self.validation_writer.add_summary(self.summary, self.current_train_iter)
 
-                # Change source data to validation
-                self.sess.run(self.training_init_op)
+                # # Change source data to validation
+                # self.sess.run(self.training_init_op)
 
                 # Log metrics
                 logging.info('    Learning iteration {}'.format(i))

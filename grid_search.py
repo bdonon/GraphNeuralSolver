@@ -75,7 +75,6 @@ if __name__ == '__main__':
 
     # Setup session
     config = tf.compat.v1.ConfigProto()
-    config.gpu_options.allow_growth = True
     config.allow_soft_placement=True
     if args.gpu is not None:
         config.gpu_options.allow_growth = True

@@ -423,8 +423,4 @@ class EquilibriumViolation:
         else:
             loss = tf.reduce_mean(error**2)                         # tf.float32, [1]
 
-        # loss = tf.reduce_mean(error**2)
-        # jacobian = error
-        # proxy_difference = error
-
         return loss, error, jacobian, proxy_difference
