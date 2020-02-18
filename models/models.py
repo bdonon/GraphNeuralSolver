@@ -433,7 +433,7 @@ class GraphNeuralSolver:
             'minibatch_size': self.minibatch_size,
             'nr': self.nr,
             'name': self.name,
-            'directory': selfcc.directory,
+            'directory': self.directory,
             'current_train_iter': self.current_train_iter
         } 
         return config
