@@ -238,9 +238,9 @@ class GraphNeuralSolver:
             self.Phi_input = tf.concat([self.H_from, self.H_to, self.A_ij], axis=2)
 
             # Compute the phi using the dedicated neural network blocks
-            self.Phi_from = self.phi_from[str(update)](self.Phi_input[str(update)]) * (1.-self.mask_loop)
-            self.Phi_to = self.phi_to[str(update)](self.Phi_input[str(update)]) * (1.-self.mask_loop)
-            self.Phi_loop = self.phi_loop[str(update)](self.Phi_input[str(update)]) * self.mask_loop
+            self.Phi_from = self.phi_from[str(update)](self.Phi_input) * (1.-self.mask_loop)
+            self.Phi_to = self.phi_to[str(update)](self.Phi_input) * (1.-self.mask_loop)
+            self.Phi_loop = self.phi_loop[str(update)](self.Phi_input) * self.mask_loop
 
             # Get the sum of each transformed messages at each node
             self.Phi_from_sum = custom_scatter(
@@ -265,7 +265,7 @@ class GraphNeuralSolver:
                 self.Phi_loop_sum], axis=2)
 
             # Compute the correction using the dedicated neural network block
-            self.correction = self.correction_block[str(update)](self.correction_input[str(update)])
+            self.correction = self.correction_block[str(update)](self.correction_input)
 
             # Apply correction, and extract the predictions from the latent message
             self.H[str(update+1)] = self.H[str(update)] + self.correction * 1e-2
