@@ -148,7 +148,6 @@ if __name__ == '__main__':
         # Train model on the specified directory for data
         model.train(
             max_iter=args.max_iter,
-            minibatch_size=args.minibatch_size,
             learning_rate=args.learning_rate, 
             discount=args.discount,
             beta=args.beta,

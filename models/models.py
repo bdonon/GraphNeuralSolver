@@ -157,25 +157,8 @@ class GraphNeuralSolver:
         Assumes that all graphs have been merged into one supergraph
         """
 
-        # # Load train and val sets
-        # A_train_np = np.load(os.path.join(default_data_directory, 'A_train.npy')).astype(np.float32)
-        # B_train_np = np.load(os.path.join(default_data_directory, 'B_train.npy')).astype(np.float32)
-        
-        # A_valid_np = np.load(os.path.join(default_data_directory, 'A_val.npy')).astype(np.float32)
-        # B_valid_np = np.load(os.path.join(default_data_directory, 'B_val.npy')).astype(np.float32)
-
-        # # Load into tf data
-        # A_train = tf.data.Dataset.from_tensor_slices(A_train_np)
-        # B_train = tf.data.Dataset.from_tensor_slices(B_train_np)
-
-        # A_valid = tf.data.Dataset.from_tensor_slices(A_valid_np)
-        # B_valid = tf.data.Dataset.from_tensor_slices(B_valid_np)
-
-        # # Build train and valid datasets
-        # self.train_dataset = tf.data.Dataset.zip((A_train, B_train)).shuffle(100).repeat().batch(self.minibatch_size)
-        # self.valid_dataset = tf.data.Dataset.zip((A_valid, B_valid)).shuffle(100).repeat().batch(20)
-
         def extract_fn(tfrecord):
+
             # Extract features using the keys set during creation
             features = {
                 'A': tf.io.FixedLenSequenceFeature([], tf.float32, allow_missing=True),
@@ -185,11 +168,7 @@ class GraphNeuralSolver:
             # Extract the data record
             sample = tf.parse_single_example(tfrecord, features)
 
-            #A_flat = tf.decode_raw(sample['A'], tf.uint8)
-            A = sample['A']
-            #B_flat = tf.decode_raw(sample['B'], tf.uint8)
-            B = sample['B']
-            return [A,B]
+            return [sample['A'], sample['B']]
 
         self.train_dataset = tf.data.TFRecordDataset([os.path.join(default_data_directory,'train.tfrecords')])
         self.train_dataset = self.train_dataset.map(extract_fn).shuffle(100).batch(self.minibatch_size).repeat()
@@ -210,11 +189,12 @@ class GraphNeuralSolver:
         # Get the output of the data handler
         self.A_flat, self.B_flat = self.next_element
 
+        # Reshape the iterator
         self.minibatch_size_ = tf.shape(self.A_flat)[0]
-
         self.A = tf.reshape(self.A_flat, [self.minibatch_size_, -1, self.edge_dim+2])
         self.B = tf.reshape(self.B_flat, [self.minibatch_size_, -1, self.input_dim])
 
+        # Get relevant tensor dimensions
         self.minibatch_size_tf = tf.shape(self.A)[0]
         self.num_nodes = tf.shape(self.B)[1]
         self.num_edges = tf.shape(self.A)[1]
@@ -224,6 +204,7 @@ class GraphNeuralSolver:
         self.indices_from = tf.cast(self.A[:,:,0], tf.int32)
         self.indices_to = tf.cast(self.A[:,:,1], tf.int32)
 
+        # Build mask to detect loops
         self.mask_loop = tf.cast(tf.math.equal(self.indices_from, self.indices_to), tf.float32)
         self.mask_loop = tf.expand_dims(self.mask_loop, -1)
 
@@ -240,12 +221,7 @@ class GraphNeuralSolver:
         self.X = {}
         self.loss = {}
         self.error = {}
-        self.jacobian = {}
-        self.proxy_diff = {}
         self.total_loss = None
-        self.Phi_input_norm = {}
-        self.correction_input_norm = {}
-        self.loss_distrib = {}
 
         # Initialize latent message and prediction to 0
         self.H['0'] = tf.zeros([self.minibatch_size_tf, self.num_nodes, self.output_dim+self.latent_dimension])
@@ -254,8 +230,6 @@ class GraphNeuralSolver:
         # Iterate over every correction update
         for update in range(self.correction_updates):
 
-
-
             # Gather messages from both extremities of each edges
             self.H_from = custom_gather(self.H[str(update)], self.indices_from)
             self.H_to = custom_gather(self.H[str(update)], self.indices_to)
@@ -263,16 +237,10 @@ class GraphNeuralSolver:
             # Concatenate all the inputs of the phi neural network
             self.Phi_input = tf.concat([self.H_from, self.H_to, self.A_ij], axis=2)
 
-            # Normalize the input using batch norm. A reshaping step is required for batch norm to work properly, but does not affect dimensions
-            #self.Phi_input = tf.reshape(self.Phi_input, [self.minibatch_size_tf * self.num_edges, 2*(self.latent_dimension+self.output_dim)+2*self.edge_dim])
-
-            #self.Phi_input_norm[str(update)] = self.phi_normalizer[str(update)](self.Phi_input)
-            self.Phi_input_norm[str(update)] = self.Phi_input
-
             # Compute the phi using the dedicated neural network blocks
-            self.Phi_from = self.phi_from[str(update)](self.Phi_input_norm[str(update)]) * (1.-self.mask_loop)
-            self.Phi_to = self.phi_to[str(update)](self.Phi_input_norm[str(update)]) * (1.-self.mask_loop)
-            self.Phi_loop = self.phi_loop[str(update)](self.Phi_input_norm[str(update)]) * self.mask_loop
+            self.Phi_from = self.phi_from[str(update)](self.Phi_input[str(update)]) * (1.-self.mask_loop)
+            self.Phi_to = self.phi_to[str(update)](self.Phi_input[str(update)]) * (1.-self.mask_loop)
+            self.Phi_loop = self.phi_loop[str(update)](self.Phi_input[str(update)]) * self.mask_loop
 
             # Get the sum of each transformed messages at each node
             self.Phi_from_sum = custom_scatter(
@@ -288,7 +256,6 @@ class GraphNeuralSolver:
                 self.Phi_loop, 
                 [self.minibatch_size_tf, self.num_nodes, self.latent_dimension+self.output_dim])
 
-
             # Concatenate all the inputs of the correction neural network
             self.correction_input = tf.concat([
                 self.H[str(update)],
@@ -297,12 +264,8 @@ class GraphNeuralSolver:
                 self.Phi_to_sum,
                 self.Phi_loop_sum], axis=2)
 
-
-            #self.correction_input_norm[str(update)] = self.correction_normalizer[str(update)](self.correction_input)
-            self.correction_input_norm[str(update)] = self.correction_input
-
             # Compute the correction using the dedicated neural network block
-            self.correction = self.correction_block[str(update)](self.correction_input_norm[str(update)])
+            self.correction = self.correction_block[str(update)](self.correction_input[str(update)])
 
             # Apply correction, and extract the predictions from the latent message
             self.H[str(update+1)] = self.H[str(update)] + self.correction * 1e-2
@@ -310,33 +273,8 @@ class GraphNeuralSolver:
             # Decode the first "output_dim" components of H
             self.X[str(update+1)] = self.D(self.H[str(update+1)][:,:,:self.output_dim])
 
-            # # Compute KL divergence between the input of each neural network a gaussian
-            # self.mean_phi_norm =  tf.reduce_mean(self.Phi_input_norm[str(update)], axis=[1,2])
-            # self.mean_corr_norm =  tf.reduce_mean(self.correction_input_norm[str(update)], axis=[1,2])
-
-            # self.centered_phi_norm = self.Phi_input_norm[str(update)] - tf.reduce_mean(self.Phi_input_norm[str(update)], axis=[0,1], keepdims=True)
-            # self.centered_phi_norm = tf.expand_dims(self.centered_phi_norm, -1)
-            # self.centered_phi_norm_T = tf.transpose(self.centered_phi_norm, [0,1,3,2])
-
-            # self.centered_corr_norm = self.correction_input_norm[str(update)] - tf.reduce_mean(self.correction_input_norm[str(update)], axis=[0,1], keepdims=True)
-            # self.centered_corr_norm = tf.expand_dims(self.centered_corr_norm, -1)
-            # self.centered_corr_norm_T = tf.transpose(self.centered_corr_norm, [0,1,3,2])
-
-            # self.correlation_mat_phi = tf.reduce_mean(tf.matmul(self.centered_phi_norm, self.centered_phi_norm_T), axis=[0,1])
-            # self.correlation_mat_corr = tf.reduce_mean(tf.matmul(self.centered_corr_norm, self.centered_corr_norm_T), axis=[0,1])
-
-            # self.correlation_mat_phi_trace = tf.linalg.trace(self.correlation_mat_phi)
-            # self.correlation_mat_corr_trace = tf.linalg.trace(self.correlation_mat_corr)
-
-            # self.correlation_mat_phi_logdet = tf.reduce_sum(tf.math.log(tf.linalg.diag_part(self.correlation_mat_phi)))
-            # self.correlation_mat_corr_logdet = tf.reduce_sum(tf.math.log(tf.linalg.diag_part(self.correlation_mat_corr)))
-
-            # self.loss_distrib[str(update+1)] = tf.reduce_sum(self.mean_phi_norm**2) + tf.reduce_sum(self.mean_corr_norm**2) + \
-            #     self.correlation_mat_phi_trace + self.correlation_mat_corr_trace \
-            #     - self.correlation_mat_phi_logdet - self.correlation_mat_corr_logdet
-
             # Compute the violation of the desired equation
-            self.loss[str(update+1)], self.error[str(update+1)], self.jacobian[str(update+1)], self.proxy_diff[str(update+1)] = self.loss_function(self.X[str(update+1)], self.A, self.B, self.nr)
+            self.loss[str(update+1)], self.error[str(update+1)] = self.loss_function(self.X[str(update+1)], self.A, self.B, self.nr)
             tf.compat.v1.summary.scalar("loss_{}".format(update+1), self.loss[str(update+1)])
 
             # Compute the discounted loss
@@ -358,7 +296,6 @@ class GraphNeuralSolver:
         self.gradients, self.variables = zip(*self.optimizer.compute_gradients(self.total_loss))
         self.gradients, _ = tf.clip_by_global_norm(self.gradients, 10)
 
-        #with tf.control_dependencies(self.update_ops):
         self.opt_op = self.optimizer.apply_gradients(zip(self.gradients, self.variables))
 
         self.sess.run(tf.compat.v1.variables_initializer(self.optimizer.variables()))
@@ -373,8 +310,6 @@ class GraphNeuralSolver:
             self.trainable_variables.extend(self.phi_to[str(update)].trainable_variables)
             self.trainable_variables.extend(self.phi_loop[str(update)].trainable_variables)
             self.trainable_variables.extend(self.correction_block[str(update)].trainable_variables)
-            #self.trainable_variables.extend(self.phi_normalizer[str(update)].trainable_variables)
-            #self.trainable_variables.extend(self.correction_normalizer[str(update)].trainable_variables)
         self.trainable_variables.extend(self.D.trainable_variables)
 
         
@@ -456,8 +391,7 @@ class GraphNeuralSolver:
 
 
     def train(self, 
-        max_iter=10, 
-        minibatch_size=10, 
+        max_iter=10,
         learning_rate=3e-4, 
         discount=0.9, 
         beta=0.1,
@@ -518,21 +452,15 @@ class GraphNeuralSolver:
             # Store current training step, so that it's always up to date
             self.current_train_iter = i
 
-            # Build feed_dict
-            feed_dict = {
-                self.A: A_train[:minibatch_size],
-                self.B: B_train[:minibatch_size],
-            }
-
             # Perform SGD step
             if profile and i>starting_point:
-                self.sess.run(self.opt_op, options=options, run_metadata=run_metadata, feed_dict=feed_dict)
+                self.sess.run(self.opt_op, options=options, run_metadata=run_metadata)
                 fetched_timeline = timeline.Timeline(run_metadata.step_stats)
                 chrome_trace = fetched_timeline.generate_chrome_trace_format()
                 with open(profile_path+'_{}.json'.format(i), 'w') as f:
                     f.write(chrome_trace)
             else:
-                self.sess.run(self.opt_op, feed_dict=feed_dict)
+                self.sess.run(self.opt_op)
 
             # Store final loss in a summary
             self.summary = self.sess.run(self.merged_summary_op, feed_dict=feed_dict)
@@ -542,20 +470,20 @@ class GraphNeuralSolver:
             if ((save_step is not None) & (i % save_step == 0)) or (i == starting_point+max_iter-1):
 
                 # Get minibatch train loss
-                loss_final_train = self.sess.run(self.loss_final, feed_dict={self.A:A_train[:minibatch_size], self.B:B_train[:minibatch_size]})
+                loss_final_train = self.sess.run(self.loss_final)
 
-                # # Change source data to validation
-                # self.sess.run(self.validation_init_op)
+                # Change source data to validation
+                self.sess.run(self.validation_init_op)
 
                 # Get minibatch val loss
-                loss_final_val = self.sess.run(self.loss_final, feed_dict={self.A:A_val[:minibatch_size], self.B:B_val[:minibatch_size]})
+                loss_final_val = self.sess.run(self.loss_final)
 
                 # Store final loss in validation
-                self.summary = self.sess.run(self.merged_summary_op, feed_dict={self.A:A_val[:minibatch_size], self.B:B_val[:minibatch_size]})
+                self.summary = self.sess.run(self.merged_summary_op)
                 self.validation_writer.add_summary(self.summary, self.current_train_iter)
 
-                # # Change source data to validation
-                # self.sess.run(self.training_init_op)
+                # Change source data to validation
+                self.sess.run(self.training_init_op)
 
                 # Log metrics
                 logging.info('    Learning iteration {}'.format(i))

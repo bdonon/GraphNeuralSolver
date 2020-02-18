@@ -165,7 +165,6 @@ if __name__ == '__main__':
         # Train model
         model.train(
             max_iter=args.max_iter,
-            minibatch_size=args.minibatch_size, 
             learning_rate=learning_rate, 
             discount=discount, 
             beta=beta,

@@ -304,81 +304,6 @@ class EquilibriumViolation:
 
         return Err
 
-
-    def jacobian_tensor(self, X, A, B):
-        """
-        Computes the jacobian of the error
-
-        Inputs
-            - X : tensor of shape [n_samples, n_nodes, d_out]
-            - A : tensor of shape [n_samples, n_edges, 2+d_in_A]
-            - B : tensor of shape [n_samples, n_nodes, d_in_B]
-
-        Output 
-            - jacobian : tensor of shape [n_samples, d_F, n_nodes, n_nodes]
-        """
-
-        d_out = tf.shape(X)[2]                                      # tf.int32, [1]
-        n_samples = tf.shape(X)[0]                                  # tf.int32, [1]
-        n_nodes = tf.shape(X)[1]                                    # tf.int32, [1]
-        n_edges = tf.shape(A)[1]                                    # tf.int32, [1]
-
-        # Get how many equalities should hold at each node
-        d_F = self.forces.d_F                                       # tf.int32, [1]
-
-        # Extract indices from A matrix
-        indices_from = tf.cast(A[:,:,0], tf.int32)                  # tf.int32, [n_samples, n_edges]
-        indices_to = tf.cast(A[:,:,1], tf.int32)                    # tf.int32, [n_samples, n_edges]
-
-        # Extact edge characteristics from A matrix
-        A_ij = A[:,:,2:]                                            # tf.float32, [n_samples, n_edges, d_in_A]
-
-        # Gather predictions on "from" and "to" sides of each edge
-        X_i = custom_gather(X, indices_from)                        # tf.float32, [n_samples, n_edges, d_out]
-        X_j = custom_gather(X, indices_to)                          # tf.float32, [n_samples, n_edges, d_out]
-
-
-        #### First, let's focus on the diagonal part, which is somehow similar to the error tensor
-
-        # Compute local derivative of counteraction forces
-        dF_round_dX = self.forces.dF_round_dX(X, B)                 # tf.float32, [n_samples, n_nodes, d_F]
-
-        # Compute local derivative of interaction forces w.r.t the "from" side
-        dF_bar_dX_i = self.forces.dF_bar_dX_i(X_i, X_j, A_ij)       # tf.float32, [n_samples, n_edges, d_F]
-
-        # Scatter forces from edges to nodes
-        dF_bar_dX_i_sum = custom_scatter(indices_from, dF_bar_dX_i, [n_samples, n_nodes, d_F])       
-                                                                    # tf.float32, [n_samples, n_nodes, d_F]
-
-        # Sum all forces applied to each node
-        dF_sum_diag = dF_round_dX + dF_bar_dX_i_sum                 # tf.float32, [n_samples, n_nodes, d_F]
-
-        # Convert it to a diagonal tensor
-        dF_sum_diag_transpose = tf.transpose(dF_sum_diag, [0,2,1])  # tf.float32, [n_samples, d_F, n_nodes]
-        dF_diag = tf.linalg.diag(dF_sum_diag_transpose)             # tf.float32, [n_samples, d_F, n_nodes, n_nodes]
-
-
-        #### Now let's build the non diagonal part of the jacobian tensor, which is a bit more complicated
-
-        # Compute local derivative of interaction forces w.r.t the "to" side
-        dF_bar_dX_j = self.forces.dF_bar_dX_j(X_i, X_j, A_ij)       # tf.float32, [n_samples, n_edges, d_F]
-
-        # Scatter forces from edges to couples of nodes
-        dF_sum_non_diag = custom_scatter_jacobian(indices_from, indices_to, dF_bar_dX_j, [n_samples, n_nodes, n_nodes, d_F])    
-                                                                    # tf.float32, [n_samples, n_nodes, n_nodes, d_F]
-
-        # Transpose
-        dF_sum_non_diag = tf.transpose(dF_sum_non_diag, [0,3,1,2])  # tf.float32, [n_samples, d_F, n_nodes, n_nodes]
-
-
-        #### Sum the diagonal and non diagonal terms:
-
-        jacobian = dF_diag + dF_sum_non_diag                        # tf.float32, [n_samples, d_F, n_nodes, n_nodes]
-
-        return jacobian
-
-
-
     def __call__(self, X, A, B, nr=True):
         """
         Computes a surrogate for the distance between our prediction and the ground truth.
@@ -393,39 +318,8 @@ class EquilibriumViolation:
             - loss : tensor of shape [1]
         """
 
-        d_out = tf.shape(X)[2]                                      # tf.int32, [1]
-        n_samples = tf.shape(X)[0]                                  # tf.int32, [1]
-        n_nodes = tf.shape(X)[1]                                    # tf.int32, [1]
-        n_edges = tf.shape(A)[1]                                    # tf.int32, [1]
-
-        # Get how many equalities should hold at each node
-        d_F = self.forces.d_F                                       # tf.int32, [1]
-
-        # Get error and jacobian tensors
+        # Get error tensors
         error = self.error_tensor(X, A, B)                          # tf.float32, [n_samples, n_nodes, d_F]
-        jacobian = self.jacobian_tensor(X, A, B)                    # tf.float32, [n_samples, d_F, n_nodes, n_nodes]
 
-        # Transpose and add dummy dim the error for matrix compatibility
-        error_transpose = tf.transpose(error, [0,2,1])              # tf.float32, [n_samples, d_F, n_nodes]
-        error_dummy = tf.expand_dims(error_transpose, -1)           # tf.float32, [n_samples, d_F, n_nodes, 1]
-        error_dummy_flat = tf.reshape(error_dummy, [-1, n_nodes, 1])                             
-                                                                    # tf.float32, [n_samples * d_F, n_nodes, 1]
-
-        # Inverse the jacobian
-        jacobian_flat = tf.reshape(jacobian, [-1, n_nodes, n_nodes])
-                                                                    # tf.float32, [n_samples * d_F, n_nodes, n_nodes]
-        inverse_jacobian_flat = tf.linalg.inv(jacobian_flat)        # tf.float32, [n_samples * d_F, n_nodes, n_nodes]    
-
-        # Compute loss
-        proxy_difference_flat = tf.matmul(inverse_jacobian_flat, error_dummy_flat) 
-                                                                    # tf.float32, [n_samples * d_F, n_nodes, 1]
-        proxy_difference = tf.reshape(proxy_difference_flat, [n_samples, d_F, n_nodes, 1])
-                                                                    # tf.float32, [n_samples, d_F, n_nodes, 1]
-
-        # Compute the l2 norm for each node, and take the average for the dataset
-        if nr:
-            loss = tf.reduce_mean(proxy_difference**2)              # tf.float32, [1]
-        else:
-            loss = tf.reduce_mean(error**2)                         # tf.float32, [1]
-
-        return loss, error, jacobian, proxy_difference
+        loss = tf.reduce_mean(error**2)
+        return loss, error
