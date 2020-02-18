@@ -217,7 +217,7 @@ class FullyConnected:
         n_elem = tf.shape(h)[1]
         d = tf.shape(h)[2]
 
-        h = tf.reshape(h, [-1, left_dim])
+        h = tf.reshape(h, [-1, d])
 
         for layer in range(self.hidden_layers):
             # Iterate over all layers
