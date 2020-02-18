@@ -39,7 +39,7 @@ class GraphNeuralSolver:
         self.input_dim = input_dim
         self.edge_dim = edge_dim
         self.minibatch_size = minibatch_size
-        self.nr = True
+        self.nr = nr
         self.name = name
         self.directory = directory
         self.current_train_iter = 0
