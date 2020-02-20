@@ -304,7 +304,7 @@ class EquilibriumViolation:
 
         return Err
 
-    def __call__(self, X, A, B, nr=True):
+    def __call__(self, X, A, B):
         """
         Computes a surrogate for the distance between our prediction and the ground truth.
         This surrogate is exact in the case of linear systems.

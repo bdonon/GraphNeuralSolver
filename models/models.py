@@ -24,7 +24,6 @@ class GraphNeuralSolver:
         output_dim=1,
         edge_dim=1,
         minibatch_size=10,
-        nr=True,
         name='graph_neural_solver',
         directory='./',
         model_to_restore=None,
@@ -39,7 +38,6 @@ class GraphNeuralSolver:
         self.input_dim = input_dim
         self.edge_dim = edge_dim
         self.minibatch_size = minibatch_size
-        self.nr = nr
         self.name = name
         self.directory = directory
         self.current_train_iter = 0
@@ -100,51 +98,78 @@ class GraphNeuralSolver:
 
             self.correction_block[str(update)] = FullyConnected(
                 non_lin=self.non_lin,
-                latent_dimension=self.output_dim+self.latent_dimension,
+                latent_dimension=self.latent_dimension,
                 hidden_layers=self.hidden_layers,
                 name=self.name+'_correction_block_{}'.format(update),
-                input_dim=4*(self.latent_dimension+self.output_dim)+self.input_dim
+                input_dim=4*(self.latent_dimension)+self.input_dim
             )
             self.phi_from[str(update)] = FullyConnected(
                 non_lin=self.non_lin,
-                latent_dimension=self.output_dim+self.latent_dimension,
+                latent_dimension=self.latent_dimension,
                 hidden_layers=self.hidden_layers,
                 name=self.name+'_phi_from_{}'.format(update),
-                input_dim=2*(self.latent_dimension+self.output_dim)+self.edge_dim
+                input_dim=2*(self.latent_dimension)+self.edge_dim
             )
             self.phi_to[str(update)] = FullyConnected(
                 non_lin=self.non_lin,
-                latent_dimension=self.output_dim+self.latent_dimension,
+                latent_dimension=self.latent_dimension,
                 hidden_layers=self.hidden_layers,
                 name=self.name+'_phi_to_{}'.format(update),
-                input_dim=2*(self.latent_dimension+self.output_dim)+self.edge_dim
+                input_dim=2*(self.latent_dimension)+self.edge_dim
             )
             self.phi_loop[str(update)] = FullyConnected(
                 non_lin=self.non_lin,
-                latent_dimension=self.output_dim+self.latent_dimension,
+                latent_dimension=self.latent_dimension,
                 hidden_layers=self.hidden_layers,
                 name=self.name+'_phi_loop_{}'.format(update),
-                input_dim=2*(self.latent_dimension+self.output_dim)+self.edge_dim
+                input_dim=2*(self.latent_dimension)+self.edge_dim
             )
-            # self.phi_normalizer[str(update)] = FullyConnected(
-            #     hidden_layers=1,
-            #     name=self.name+'_phi_normalizer_{}'.format(update),
-            #     input_dim=2*(self.latent_dimension+self.output_dim)+2*self.edge_dim,
-            #     output_dim=2*(self.latent_dimension+self.output_dim)+2*self.edge_dim
+
+            # self.correction_block[str(update)] = FullyConnected(
+            #     non_lin=self.non_lin,
+            #     latent_dimension=self.output_dim+self.latent_dimension,
+            #     hidden_layers=self.hidden_layers,
+            #     name=self.name+'_correction_block_{}'.format(update),
+            #     input_dim=4*(self.latent_dimension+self.output_dim)+self.input_dim
             # )
-            # self.correction_normalizer[str(update)] = FullyConnected(
-            #     hidden_layers=1,
-            #     name=self.name+'_correction_normalizer_{}'.format(update),
-            #     input_dim=3*(self.latent_dimension+self.output_dim)+2*self.input_dim,
-            #     output_dim=3*(self.latent_dimension+self.output_dim)+2*self.input_dim
+            # self.phi_from[str(update)] = FullyConnected(
+            #     non_lin=self.non_lin,
+            #     latent_dimension=self.output_dim+self.latent_dimension,
+            #     hidden_layers=self.hidden_layers,
+            #     name=self.name+'_phi_from_{}'.format(update),
+            #     input_dim=2*(self.latent_dimension+self.output_dim)+self.edge_dim
             # )
+            # self.phi_to[str(update)] = FullyConnected(
+            #     non_lin=self.non_lin,
+            #     latent_dimension=self.output_dim+self.latent_dimension,
+            #     hidden_layers=self.hidden_layers,
+            #     name=self.name+'_phi_to_{}'.format(update),
+            #     input_dim=2*(self.latent_dimension+self.output_dim)+self.edge_dim
+            # )
+            # self.phi_loop[str(update)] = FullyConnected(
+            #     non_lin=self.non_lin,
+            #     latent_dimension=self.output_dim+self.latent_dimension,
+            #     hidden_layers=self.hidden_layers,
+            #     name=self.name+'_phi_loop_{}'.format(update),
+            #     input_dim=2*(self.latent_dimension+self.output_dim)+self.edge_dim
+            # )
+            
+
+        # self.D = FullyConnected(
+        #     non_lin=self.non_lin,
+        #     latent_dimension=self.output_dim+self.latent_dimension,
+        #     hidden_layers=self.hidden_layers,#1,
+        #     name=self.name+'_D_{}'.format(update),
+        #     input_dim=self.output_dim,
+        #     output_dim=self.output_dim
+        # )
 
         self.D = FullyConnected(
             non_lin=self.non_lin,
-            latent_dimension=self.output_dim+self.latent_dimension,
+            latent_dimension=self.latent_dimension,
             hidden_layers=self.hidden_layers,#1,
             name=self.name+'_D_{}'.format(update),
-            input_dim=self.output_dim,
+            input_dim=self.latent_dimension,
             output_dim=self.output_dim
         )
 
@@ -213,8 +238,7 @@ class GraphNeuralSolver:
 
         # Initialize the discount factor that will later be updated
         self.discount = tf.Variable(0., trainable=False)
-        self.beta = tf.Variable(0.1, trainable=False)
-        self.sess.run(tf.compat.v1.variables_initializer([self.discount, self.beta]))
+        self.sess.run(tf.compat.v1.variables_initializer([self.discount]))
 
         # Initialize messages, predictions and losses dict
         self.H = {}
@@ -271,10 +295,11 @@ class GraphNeuralSolver:
             self.H[str(update+1)] = self.H[str(update)] + self.correction * 1e-2
 
             # Decode the first "output_dim" components of H
-            self.X[str(update+1)] = self.D(self.H[str(update+1)][:,:,:self.output_dim])
+            # self.X[str(update+1)] = self.D(self.H[str(update+1)][:,:,:self.output_dim])
+            self.X[str(update+1)] = self.D(self.H[str(update+1)])
 
             # Compute the violation of the desired equation
-            self.loss[str(update+1)], self.error[str(update+1)] = self.loss_function(self.X[str(update+1)], self.A, self.B, self.nr)
+            self.loss[str(update+1)], self.error[str(update+1)] = self.loss_function(self.X[str(update+1)], self.A, self.B)
             tf.compat.v1.summary.scalar("loss_{}".format(update+1), self.loss[str(update+1)])
 
             # Compute the discounted loss
@@ -329,7 +354,6 @@ class GraphNeuralSolver:
         logging.info('        Output dimension : {}'.format(self.output_dim))
         logging.info('        Edge dimension : {}'.format(self.edge_dim))
         logging.info('        Minibatch size : {}'.format(self.minibatch_size))
-        logging.info('        Newton-Raphson loss : {}'.format(self.nr))
         logging.info('        Current training iteration : {}'.format(self.current_train_iter))
         logging.info('        Model name : ' + self.name)
 
@@ -346,7 +370,6 @@ class GraphNeuralSolver:
         self.input_dim = config['input_dim']
         self.edge_dim = config['edge_dim']
         self.minibatch_size = config['minibatch_size']
-        self.nr = config['nr']
         self.name = config['name']
         self.directory = config['directory']
         self.current_train_iter = config['current_train_iter']
@@ -366,7 +389,6 @@ class GraphNeuralSolver:
             'input_dim': self.input_dim,
             'edge_dim': self.edge_dim,
             'minibatch_size': self.minibatch_size,
-            'nr': self.nr,
             'name': self.name,
             'directory': self.directory,
             'current_train_iter': self.current_train_iter
@@ -393,8 +415,7 @@ class GraphNeuralSolver:
     def train(self, 
         max_iter=10,
         learning_rate=3e-4, 
-        discount=0.9, 
-        beta=0.1,
+        discount=0.9,
         data_directory='datasets/spring/default',
         save_step=None,
         profile=False):
@@ -407,7 +428,6 @@ class GraphNeuralSolver:
         logging.info('        Max iteration : {}'.format(max_iter))
         logging.info('        Learning rate : {}'.format(learning_rate))
         logging.info('        Discount : {}'.format(discount))
-        logging.info('        Beta : {}'.format(beta))
         logging.info('        Training data : {}'.format(data_directory))
         logging.info('        Saving model every {} iterations'.format(save_step))
         if profile:
@@ -415,14 +435,6 @@ class GraphNeuralSolver:
 
         # Change dataset
         self.sess.run(self.training_init_op)
-
-        # Import train data
-        A_train = np.load(os.path.join(data_directory, 'A_train.npy'))
-        B_train = np.load(os.path.join(data_directory, 'B_train.npy'))
-
-        # Import val data
-        A_val = np.load(os.path.join(data_directory, 'A_val.npy'))
-        B_val = np.load(os.path.join(data_directory, 'B_val.npy'))
 
         # Build writer dedicated to training for Tensorboard
         self.training_writer = tf.compat.v1.summary.FileWriter(
@@ -434,7 +446,6 @@ class GraphNeuralSolver:
 
         # Set discount factor and learning rate
         self.sess.run(self.discount.assign(discount))
-        self.sess.run(self.beta.assign(beta))
         self.sess.run(self.learning_rate.assign(learning_rate))
 
         # Copy the latest training iteration of the model

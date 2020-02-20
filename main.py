@@ -33,14 +33,10 @@ parser.add_argument('--max_iter', type=int, default=1000000,
     help='Number of training steps')
 parser.add_argument('--minibatch_size', type=int, default=10,
     help='Size of each minibatch')
-parser.add_argument('--newton_raphson', type=bool, default=True,
-    help='Newton-Raphson loss')
 parser.add_argument('--learning_rate', type=float, default=1e-3,
     help='Learning rate')
 parser.add_argument('--discount', type=float, default=0.9,
     help='Discount factor for training')
-parser.add_argument('--beta', type=float, default=0.1,
-    help='Weight for the KL divergence term in the loss')
 parser.add_argument('--track_validation', type=float, default=100,
     help='Tracking validation metrics every XX iterations')
 parser.add_argument('--data_directory', type=str, default='data/',
@@ -139,7 +135,6 @@ if __name__ == '__main__':
             input_dim=1,
             output_dim=1,
             minibatch_size=args.minibatch_size,
-            nr=args.newton_raphson,
             name='gns',
             directory=result_dir,
             default_data_directory=args.data_directory,
@@ -150,7 +145,6 @@ if __name__ == '__main__':
             max_iter=args.max_iter,
             learning_rate=args.learning_rate, 
             discount=args.discount,
-            beta=args.beta,
             data_directory=args.data_directory,
             save_step=args.track_validation,
             profile=args.profile)

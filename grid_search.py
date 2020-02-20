@@ -35,8 +35,6 @@ parser.add_argument('--max_iter', type=int, default=1000,
     help='Number of training steps')
 parser.add_argument('--minibatch_size', type=int, default=1000,
     help='Size of each minibatch')
-parser.add_argument('--newton_raphson', type=bool, default=True,
-    help='Newton-Raphson loss')
 parser.add_argument('--track_validation', type=float, default=1000,
     help='Tracking validation metrics every XX iterations')
 parser.add_argument('--data_directory', type=str, default='data/',
@@ -47,8 +45,6 @@ parser.add_argument('--learning_rate', type=float, default=[3e-2], nargs='+',
     help='Learning rate')
 parser.add_argument('--discount', type=float, default=[0.9], nargs='+',
     help='Discount factor for training')
-parser.add_argument('--beta', type=float, default=[0.1], nargs='+',
-    help='Weight for KL divergence term in the loss')
 parser.add_argument('--latent_dimension', type=int, default=[10], nargs='+',
     help='Dimension of the latent messages, and of the hidden layers of neural net blocks')
 parser.add_argument('--hidden_layers', type=int, default=[2, 3], nargs='+',
@@ -114,7 +110,6 @@ if __name__ == '__main__':
     logging.info('    Hyperparameters :')
     logging.info('        Learning rate : {}'.format(args.learning_rate))
     logging.info('        Discount factor : {}'.format(args.discount))
-    logging.info('        Beta weight : {}'.format(args.beta))
     logging.info('        Latent dimension : {}'.format(args.latent_dimension))
     logging.info('        Number of hidden layers : {}'.format(args.hidden_layers))
     logging.info('        Number of correction updates : {}'.format(args.correction_updates))
@@ -135,11 +130,11 @@ if __name__ == '__main__':
         ):
 
         # Get combination
-        learning_rate, discount, beta, latent_dimension, hidden_layers, correction_updates, non_linearity = x
+        learning_rate, discount, latent_dimension, hidden_layers, correction_updates, non_linearity = x
 
         # Create a dir that explicitely states all the parameters
-        model_dir_name = 'lr_{}_dsct_{}_beta_{}_hdm_{}_hly_{}_cup_{}_nli_{}'.format(learning_rate, 
-            discount, beta, latent_dimension, hidden_layers, correction_updates, non_linearity)
+        model_dir_name = 'lr_{}_dsct_{}__hdm_{}_hly_{}_cup_{}_nli_{}'.format(learning_rate, 
+            discount, latent_dimension, hidden_layers, correction_updates, non_linearity)
         model_dir = os.path.join(grid_search_dir, model_dir_name) 
         if not os.path.exists(model_dir):
             os.makedirs(model_dir)
@@ -157,7 +152,6 @@ if __name__ == '__main__':
             input_dim=1,
             output_dim=1,
             minibatch_size=args.minibatch_size,
-            nr=args.newton_raphson,
             name='gns',
             directory=model_dir,
             default_data_directory=args.data_directory,)
@@ -167,7 +161,6 @@ if __name__ == '__main__':
             max_iter=args.max_iter,
             learning_rate=learning_rate, 
             discount=discount, 
-            beta=beta,
             data_directory=args.data_directory,
             save_step=args.track_validation,
             profile=args.profile)
