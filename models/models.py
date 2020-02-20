@@ -270,15 +270,15 @@ class GraphNeuralSolver:
             self.Phi_from_sum = custom_scatter(
                 self.indices_from, 
                 self.Phi_from, 
-                [self.minibatch_size_tf, self.num_nodes, self.latent_dimension+self.output_dim])
+                [self.minibatch_size_tf, self.num_nodes, self.latent_dimension])
             self.Phi_to_sum = custom_scatter(
                 self.indices_to, 
                 self.Phi_to, 
-                [self.minibatch_size_tf, self.num_nodes, self.latent_dimension+self.output_dim])
+                [self.minibatch_size_tf, self.num_nodes, self.latent_dimension])
             self.Phi_loop_sum = custom_scatter(
                 self.indices_to, 
                 self.Phi_loop, 
-                [self.minibatch_size_tf, self.num_nodes, self.latent_dimension+self.output_dim])
+                [self.minibatch_size_tf, self.num_nodes, self.latent_dimension])
 
             # Concatenate all the inputs of the correction neural network
             self.correction_input = tf.concat([
