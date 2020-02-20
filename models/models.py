@@ -309,7 +309,7 @@ class GraphNeuralSolver:
                 self.total_loss = self.log_loss[str(update+1)] * self.discount**(self.correction_updates-1-update)
             else:
                 #self.total_loss += self.loss[str(update+1)] * self.discount**(self.correction_updates-1-update)
-                self.total_loss += self.logloss[str(update+1)] * self.discount**(self.correction_updates-1-update)
+                self.total_loss += self.log_loss[str(update+1)] * self.discount**(self.correction_updates-1-update)
 
         # Get the final prediction and the final loss
         self.X_final = self.X[str(self.correction_updates)]
