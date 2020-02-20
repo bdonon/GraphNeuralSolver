@@ -248,8 +248,8 @@ class GraphNeuralSolver:
         self.total_loss = None
 
         # Initialize latent message and prediction to 0
-        self.H['0'] = tf.zeros([self.minibatch_size_tf, self.num_nodes, self.output_dim+self.latent_dimension])
-        self.X['0'] = self.D(self.H['0'][:,:,:self.output_dim])
+        self.H['0'] = tf.zeros([self.minibatch_size_tf, self.num_nodes, self.latent_dimension])
+        self.X['0'] = self.D(self.H['0'])
 
         # Iterate over every correction update
         for update in range(self.correction_updates):
