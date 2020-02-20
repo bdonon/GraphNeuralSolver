@@ -244,6 +244,7 @@ class GraphNeuralSolver:
         self.H = {}
         self.X = {}
         self.loss = {}
+        self.log_loss = {}
         self.error = {}
         self.total_loss = None
 
@@ -299,14 +300,16 @@ class GraphNeuralSolver:
             self.X[str(update+1)] = self.D(self.H[str(update+1)])
 
             # Compute the violation of the desired equation
-            self.loss[str(update+1)], self.error[str(update+1)] = self.loss_function(self.X[str(update+1)], self.A, self.B)
+            self.loss[str(update+1)], self.log_loss[str(update+1)], self.error[str(update+1)] = self.loss_function(self.X[str(update+1)], self.A, self.B)
             tf.compat.v1.summary.scalar("loss_{}".format(update+1), self.loss[str(update+1)])
 
             # Compute the discounted loss
             if self.total_loss is None:
-                self.total_loss = self.loss[str(update+1)] * self.discount**(self.correction_updates-1-update)
+                #self.total_loss = self.loss[str(update+1)] * self.discount**(self.correction_updates-1-update)
+                self.total_loss = self.log_loss[str(update+1)] * self.discount**(self.correction_updates-1-update)
             else:
-                self.total_loss += self.loss[str(update+1)] * self.discount**(self.correction_updates-1-update)
+                #self.total_loss += self.loss[str(update+1)] * self.discount**(self.correction_updates-1-update)
+                self.total_loss += self.logloss[str(update+1)] * self.discount**(self.correction_updates-1-update)
 
         # Get the final prediction and the final loss
         self.X_final = self.X[str(self.correction_updates)]
