@@ -321,6 +321,6 @@ class EquilibriumViolation:
         # Get error tensors
         error = self.error_tensor(X, A, B)                          # tf.float32, [n_samples, n_nodes, d_F]
 
-        log_loss = tf.reduce_mean(tf.math.log(error**2))
+        log_loss = tf.reduce_mean(tf.math.log(error**2+1e-14))
         loss = tf.reduce_mean(error**2)
         return loss, log_loss, error
