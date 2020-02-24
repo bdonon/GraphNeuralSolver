@@ -120,7 +120,7 @@ def np_to_tfrecords(A, B, X, file_path_prefix, verbose=True):
         
     # iterate over each sample,
     # and serialize it as ProtoBuf.
-    for idx in tqdm.tqdm(range(A.shape[0])):
+    for idx in tqdm(range(A.shape[0])):
         a = A[idx]
         b = B[idx]
         x = X[idx]
