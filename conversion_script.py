@@ -144,24 +144,24 @@ for dir_name in dir_names:
     
     for mode in modes:
 
-    	path_target = os.path.join(target_dir, dir_name)
+        path_target = os.path.join(target_dir, dir_name)
 
-	    A = np.load(os.path.join(path_target, 'A_'+mode+'.npy'), allow_pickle=True)
-	    B = np.load(os.path.join(path_target, 'B_'+mode+'.npy'), allow_pickle=True)
-	    X = np.load(os.path.join(path_target, 'X_'+mode+'.npy'), allow_pickle=True)
+        A = np.load(os.path.join(path_target, 'A_'+mode+'.npy'), allow_pickle=True)
+        B = np.load(os.path.join(path_target, 'B_'+mode+'.npy'), allow_pickle=True)
+        X = np.load(os.path.join(path_target, 'X_'+mode+'.npy'), allow_pickle=True)
 
-	    n_samples = np.array(np.shape(A)[0])
+        n_samples = np.array(np.shape(A)[0])
 
-	    A = np.reshape(A, [n_samples, -1])
-	    B = np.reshape(B, [n_samples, -1])
-	    X = np.reshape(X, [n_samples, -1])
-	    
-	    print(A)
+        A = np.reshape(A, [n_samples, -1])
+        B = np.reshape(B, [n_samples, -1])
+        X = np.reshape(X, [n_samples, -1])
+        
+        print(A)
 
-	    np_to_tfrecords(A, B, X, os.path.join(path_target, mode), 
-	        verbose=True)
+        np_to_tfrecords(A, B, X, os.path.join(path_target, mode), 
+            verbose=True)
 
-	# Copy the desired force template
+    # Copy the desired force template
     src_force = 'problem_templates/problem.py')
     dst_force = os.path.join(data_dir, 'problem.py')
     new_dst_force = os.path.join(args.data_dir, 'problem.py')
