@@ -102,8 +102,7 @@ class GraphNeuralSolver:
         self.phi_to = {}
         self.phi_loop = {}
 
-        self.phi_normalizer = {}
-        self.correction_normalizer = {}
+        self.D = {}
 
         for update in range(self.correction_updates):
 
@@ -136,14 +135,23 @@ class GraphNeuralSolver:
                 input_dim=2*(self.latent_dimension)+self.d_in_A
             )
 
-        self.D = FullyConnected(
-            non_lin=self.non_lin,
-            latent_dimension=self.latent_dimension,
-            hidden_layers=self.hidden_layers,#1,
-            name=self.name+'_D_{}'.format(update),
-            input_dim=self.latent_dimension,
-            output_dim=self.d_out
-        )
+        for update in range(self.correction_updates+1):
+            self.D[str(update)] = FullyConnected(
+                non_lin=self.non_lin,
+                latent_dimension=self.latent_dimension,
+                hidden_layers=self.hidden_layers,#1,
+                name=self.name+'_D_{}'.format(update),
+                input_dim=self.latent_dimension,
+                output_dim=self.d_out
+            )
+        # self.D = FullyConnected(
+        #     non_lin=self.non_lin,
+        #     latent_dimension=self.latent_dimension,
+        #     hidden_layers=self.hidden_layers,#1,
+        #     name=self.name+'_D_{}'.format(update),
+        #     input_dim=self.latent_dimension,
+        #     output_dim=self.d_out
+        # )
 
         # Build operation that computes the distance to the target equation
         self.loss_function = EquilibriumViolation(self.default_data_directory)
@@ -224,7 +232,8 @@ class GraphNeuralSolver:
 
         # Initialize latent message and prediction to 0
         self.H['0'] = tf.zeros([self.minibatch_size_tf, self.num_nodes, self.latent_dimension])
-        self.X['0'] = self.D(self.H['0'])
+        #self.X['0'] = self.D(self.H['0'])
+        self.X['0'] = self.D['0'](self.H['0'])
 
         # Iterate over every correction update
         for update in range(self.correction_updates):
@@ -271,7 +280,8 @@ class GraphNeuralSolver:
 
             # Decode the first "output_dim" components of H
             # self.X[str(update+1)] = self.D(self.H[str(update+1)][:,:,:self.output_dim])
-            self.X[str(update+1)] = self.D(self.H[str(update+1)])
+            #self.X[str(update+1)] = self.D(self.H[str(update+1)])
+            self.X[str(update+1)] = self.D[str(update+1)](self.H[str(update+1)])
 
             # Compute the violation of the desired equation
             self.loss[str(update+1)], self.error[str(update+1)] = self.loss_function(self.X[str(update+1)], self.A, self.B)
@@ -294,7 +304,7 @@ class GraphNeuralSolver:
 
         # Gradient clipping to avoid 
         self.gradients, self.variables = zip(*self.optimizer.compute_gradients(self.total_loss))
-        self.gradients, _ = tf.clip_by_global_norm(self.gradients, 10)
+        self.gradients, _ = tf.clip_by_global_norm(self.gradients, 1)
 
         self.opt_op = self.optimizer.apply_gradients(zip(self.gradients, self.variables))
 
@@ -310,7 +320,9 @@ class GraphNeuralSolver:
             self.trainable_variables.extend(self.phi_to[str(update)].trainable_variables)
             self.trainable_variables.extend(self.phi_loop[str(update)].trainable_variables)
             self.trainable_variables.extend(self.correction_block[str(update)].trainable_variables)
-        self.trainable_variables.extend(self.D.trainable_variables)
+        for update in range(self.correction_updates+1):
+            self.trainable_variables.extend(self.D[str(update)].trainable_variables)
+        #self.trainable_variables.extend(self.D.trainable_variables)
 
         
 
