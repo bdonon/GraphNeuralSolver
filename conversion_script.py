@@ -2,6 +2,7 @@ import os
 
 import numpy as np
 import matplotlib.pyplot as plt
+import tensorflow as tf
 
 from tqdm import tqdm
 
@@ -141,10 +142,10 @@ def np_to_tfrecords(A, B, X, file_path_prefix, verbose=True):
      
 
 for dir_name in dir_names:
+
+    path_target = os.path.join(target_dir, dir_name)
     
     for mode in modes:
-
-        path_target = os.path.join(target_dir, dir_name)
 
         A = np.load(os.path.join(path_target, 'A_'+mode+'.npy'), allow_pickle=True)
         B = np.load(os.path.join(path_target, 'B_'+mode+'.npy'), allow_pickle=True)
@@ -162,10 +163,10 @@ for dir_name in dir_names:
             verbose=True)
 
     # Copy the desired force template
-    src_force = 'problem_templates/problem.py')
-    dst_force = os.path.join(data_dir, 'problem.py')
-    new_dst_force = os.path.join(args.data_dir, 'problem.py')
-    shutil.copy(src_force, args.data_dir)
+    src_force = 'problem_templates/problem.py'
+    dst_force = os.path.join(path_target, 'problem.py')
+    new_dst_force = os.path.join(path_target, 'problem.py')
+    shutil.copy(src_force, path_target)
     os.rename(dst_force, new_dst_force)
 
 
