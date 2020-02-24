@@ -149,8 +149,6 @@ if __name__ == '__main__':
             hidden_layers=hidden_layers,
             correction_updates=correction_updates,
             non_lin=non_linearity,
-            input_dim=1,
-            output_dim=1,
             minibatch_size=args.minibatch_size,
             name='gns',
             directory=model_dir,

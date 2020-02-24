@@ -251,11 +251,12 @@ class EquilibriumViolation:
         try:
             # Try importing the force template located in the dataset folder
             sys.path.append(self.path_to_data)
-            from forces import Forces
+            from problem import Forces, Dimensions
             self.forces = Forces()
+            self.dims = Dimensions()
 
         except ImportError:
-            print('You should provide a compatible "forces.py" file in your data folder!')
+            print('You should provide a compatible "problem.py" file in your data folder!')
 
 
     def error_tensor(self, X, A, B):
@@ -270,13 +271,13 @@ class EquilibriumViolation:
             - Err : tensor of shape [n_samples, n_nodes, d_F]
         """
 
-        d_out = tf.shape(X)[2]                                      # tf.int32, [1]
+        d_out = self.dims.d_out                                   # tf.int32, [1]
         n_samples = tf.shape(X)[0]                                  # tf.int32, [1]
         n_nodes = tf.shape(X)[1]                                    # tf.int32, [1]
         n_edges = tf.shape(A)[1]                                    # tf.int32, [1]
 
         # Get how many equalities should hold at each node
-        d_F = self.forces.d_F                                       # tf.int32, [1]
+        d_F = self.dims.d_F                                       # tf.int32, [1]
 
         # Extract indices from A matrix
         indices_from = tf.cast(A[:,:,0], tf.int32)                  # tf.int32, [n_samples, n_edges, 1]

@@ -38,7 +38,7 @@ class DataGenerator():
         # Build a sparse representation of a tree
         self.edges_up_left = tf.range(1, self.n_nodes)* tf.ones([self.n_samples,1], tf.int32)
 
-        self.edges_up_right = tf.cast(tf.range(0, self.n_nodes-1, 1), tf.float32)
+        self.edges_up_right = tf.cast(tf.range(1, self.n_nodes, 1), tf.float32)
         self.edges_up_right = tf.reshape(self.edges_up_right, [1, -1]) * tf.ones([self.n_samples, 1])
         self.edges_up_right = self.edges_up_right * \
             tf.random.uniform(shape=[self.n_samples, self.n_nodes-1], minval=0., maxval=0.999)
@@ -49,11 +49,27 @@ class DataGenerator():
 
 
         self.edges_down = tf.random.uniform([self.n_samples, self.n_edges-self.n_nodes+1, 2], 
-            minval=0, 
-            maxval=self.n_nodes-1, 
+            minval=0,
+            maxval=self.n_nodes, 
             dtype=tf.int32)
 
-        self.edges = tf.concat([self.edges_up, self.edges_down], 1)
+        # Ensure that there is no self loop in edges_down
+        self.unwanted_self_loop = tf.cast(tf.math.equal(self.edges_down[:,:,0], self.edges_down[:,:,1]), tf.float32)
+        #self.authorized_link = 1. - self.unwanted_self_loop
+
+        # Add an offset 
+        self.self_loop_offset = tf.stack([tf.zeros([self.n_samples, self.n_edges-self.n_nodes+1]), self.unwanted_self_loop*tf.ones([self.n_samples, self.n_edges-self.n_nodes+1])], axis=2)
+        self.self_loop_offset = tf.cast(self.self_loop_offset, tf.int32)
+        self.edges_down_corrected = self.edges_down + self.self_loop_offset
+
+        # Now check if one offset pushes one index too far
+        self.badly_corrected = tf.math.equal(tf.cast(tf.ones([self.n_samples, self.n_edges-self.n_nodes+1]), tf.int32)*self.n_nodes, self.edges_down_corrected[:,:,1])
+        self.badly_corrected = tf.stack([tf.cast(tf.zeros([self.n_samples, self.n_edges-self.n_nodes+1]), tf.int32), tf.cast(self.badly_corrected, tf.int32)], axis=2)
+        self.edges_down_corrected_again = self.edges_down_corrected -2*self.badly_corrected
+
+        #self.edges_down = self.authorized_link
+
+        self.edges = tf.concat([self.edges_up, self.edges_down_corrected_again], 1)
 
         if a_distrib[0] == 'uniform':
             self.stiffness = tf.random.uniform([self.n_samples, self.n_edges, 1], 
@@ -116,8 +132,8 @@ class DataGenerator():
         self.is_constrained_and_loop = tf.cast(self.is_constrained_edge, tf.float32) * self.is_self_loop_edge
         self.is_not_constrained_edge = 1. - tf.cast(self.is_constrained_edge, tf.float32)
 
-        self.edges = self.A[:,:,2]*self.is_not_constrained_edge + 1.*self.is_constrained_and_loop
-        self.A = tf.stack([self.A[:,:,0], self.A[:,:,1], self.edges], axis=2)
+        self.A_ij = self.A[:,:,2]*self.is_not_constrained_edge + 1.*self.is_constrained_and_loop
+        self.A = tf.stack([self.A[:,:,0], self.A[:,:,1], self.A_ij], axis=2)
 
         # Sample external forces
         if b_distrib[0] == 'uniform':

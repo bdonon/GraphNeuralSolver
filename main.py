@@ -132,8 +132,6 @@ if __name__ == '__main__':
             hidden_layers=args.hidden_layers,
             correction_updates=args.correction_updates,
             non_lin=args.non_linearity,
-            input_dim=1,
-            output_dim=1,
             minibatch_size=args.minibatch_size,
             name='gns',
             directory=result_dir,

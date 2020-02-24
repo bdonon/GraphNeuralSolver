@@ -1,8 +1,9 @@
 import os
+import sys
 import json
-import logging
 import time
 import copy
+import logging
 
 from tqdm import tqdm
 
@@ -20,9 +21,6 @@ class GraphNeuralSolver:
         hidden_layers=3,
         correction_updates=5,
         non_lin='leaky_relu',
-        input_dim=1,
-        output_dim=1,
-        edge_dim=1,
         minibatch_size=10,
         name='graph_neural_solver',
         directory='./',
@@ -34,9 +32,6 @@ class GraphNeuralSolver:
         self.hidden_layers = hidden_layers
         self.correction_updates = correction_updates
         self.non_lin = non_lin
-        self.output_dim = output_dim
-        self.input_dim = input_dim
-        self.edge_dim = edge_dim
         self.minibatch_size = minibatch_size
         self.name = name
         self.directory = directory
@@ -56,6 +51,22 @@ class GraphNeuralSolver:
             with open(path_to_config, 'r') as f:
                 config = json.load(f)
             self.set_config(config)
+
+        else:
+            # Get the data dimensions
+            try:
+                # Try importing the dimensions associated to the problem
+                sys.path.append(self.default_data_directory)
+                from problem import Dimensions
+
+                self.dims = Dimensions()
+                self.d_in_A = self.dims.d_in_A
+                self.d_in_B = self.dims.d_in_B
+                self.d_out = self.dims.d_out
+                self.d_F = self.dims.d_F
+
+            except ImportError:
+                print('You should provide a compatible "problem.py" file in your data folder!')
 
         # Build weight tensors
         self.build_weights()
@@ -101,68 +112,29 @@ class GraphNeuralSolver:
                 latent_dimension=self.latent_dimension,
                 hidden_layers=self.hidden_layers,
                 name=self.name+'_correction_block_{}'.format(update),
-                input_dim=4*(self.latent_dimension)+self.input_dim
+                input_dim=4*(self.latent_dimension)+self.d_in_B
             )
             self.phi_from[str(update)] = FullyConnected(
                 non_lin=self.non_lin,
                 latent_dimension=self.latent_dimension,
                 hidden_layers=self.hidden_layers,
                 name=self.name+'_phi_from_{}'.format(update),
-                input_dim=2*(self.latent_dimension)+self.edge_dim
+                input_dim=2*(self.latent_dimension)+self.d_in_A
             )
             self.phi_to[str(update)] = FullyConnected(
                 non_lin=self.non_lin,
                 latent_dimension=self.latent_dimension,
                 hidden_layers=self.hidden_layers,
                 name=self.name+'_phi_to_{}'.format(update),
-                input_dim=2*(self.latent_dimension)+self.edge_dim
+                input_dim=2*(self.latent_dimension)+self.d_in_A
             )
             self.phi_loop[str(update)] = FullyConnected(
                 non_lin=self.non_lin,
                 latent_dimension=self.latent_dimension,
                 hidden_layers=self.hidden_layers,
                 name=self.name+'_phi_loop_{}'.format(update),
-                input_dim=2*(self.latent_dimension)+self.edge_dim
+                input_dim=2*(self.latent_dimension)+self.d_in_A
             )
-
-            # self.correction_block[str(update)] = FullyConnected(
-            #     non_lin=self.non_lin,
-            #     latent_dimension=self.output_dim+self.latent_dimension,
-            #     hidden_layers=self.hidden_layers,
-            #     name=self.name+'_correction_block_{}'.format(update),
-            #     input_dim=4*(self.latent_dimension+self.output_dim)+self.input_dim
-            # )
-            # self.phi_from[str(update)] = FullyConnected(
-            #     non_lin=self.non_lin,
-            #     latent_dimension=self.output_dim+self.latent_dimension,
-            #     hidden_layers=self.hidden_layers,
-            #     name=self.name+'_phi_from_{}'.format(update),
-            #     input_dim=2*(self.latent_dimension+self.output_dim)+self.edge_dim
-            # )
-            # self.phi_to[str(update)] = FullyConnected(
-            #     non_lin=self.non_lin,
-            #     latent_dimension=self.output_dim+self.latent_dimension,
-            #     hidden_layers=self.hidden_layers,
-            #     name=self.name+'_phi_to_{}'.format(update),
-            #     input_dim=2*(self.latent_dimension+self.output_dim)+self.edge_dim
-            # )
-            # self.phi_loop[str(update)] = FullyConnected(
-            #     non_lin=self.non_lin,
-            #     latent_dimension=self.output_dim+self.latent_dimension,
-            #     hidden_layers=self.hidden_layers,
-            #     name=self.name+'_phi_loop_{}'.format(update),
-            #     input_dim=2*(self.latent_dimension+self.output_dim)+self.edge_dim
-            # )
-            
-
-        # self.D = FullyConnected(
-        #     non_lin=self.non_lin,
-        #     latent_dimension=self.output_dim+self.latent_dimension,
-        #     hidden_layers=self.hidden_layers,#1,
-        #     name=self.name+'_D_{}'.format(update),
-        #     input_dim=self.output_dim,
-        #     output_dim=self.output_dim
-        # )
 
         self.D = FullyConnected(
             non_lin=self.non_lin,
@@ -170,7 +142,7 @@ class GraphNeuralSolver:
             hidden_layers=self.hidden_layers,#1,
             name=self.name+'_D_{}'.format(update),
             input_dim=self.latent_dimension,
-            output_dim=self.output_dim
+            output_dim=self.d_out
         )
 
         # Build operation that computes the distance to the target equation
@@ -214,10 +186,12 @@ class GraphNeuralSolver:
         # Get the output of the data handler
         self.A_flat, self.B_flat = self.next_element
 
+        
+
         # Reshape the iterator
         self.minibatch_size_ = tf.shape(self.A_flat)[0]
-        self.A = tf.reshape(self.A_flat, [self.minibatch_size_, -1, self.edge_dim+2])
-        self.B = tf.reshape(self.B_flat, [self.minibatch_size_, -1, self.input_dim])
+        self.A = tf.reshape(self.A_flat, [self.minibatch_size_, -1, self.d_in_A+2])
+        self.B = tf.reshape(self.B_flat, [self.minibatch_size_, -1, self.d_in_B])
 
         # Get relevant tensor dimensions
         self.minibatch_size_tf = tf.shape(self.A)[0]
@@ -351,9 +325,10 @@ class GraphNeuralSolver:
         logging.info('        Number of hidden layers per block : {}'.format(self.hidden_layers))
         logging.info('        Number of correction updates : {}'.format(self.correction_updates))
         logging.info('        Non linearity : {}'.format(self.non_lin))
-        logging.info('        Input dimension : {}'.format(self.input_dim))
-        logging.info('        Output dimension : {}'.format(self.output_dim))
-        logging.info('        Edge dimension : {}'.format(self.edge_dim))
+        logging.info('        d_in_A : {}'.format(self.d_in_A))
+        logging.info('        d_in_B : {}'.format(self.d_in_B))
+        logging.info('        d_out : {}'.format(self.d_out))
+        logging.info('        d_F : {}'.format(self.d_F))
         logging.info('        Minibatch size : {}'.format(self.minibatch_size))
         logging.info('        Current training iteration : {}'.format(self.current_train_iter))
         logging.info('        Model name : ' + self.name)
@@ -367,9 +342,10 @@ class GraphNeuralSolver:
         self.hidden_layers = config['hidden_layers']
         self.correction_updates = config['correction_updates']
         self.non_lin = config['non_lin']
-        self.output_dim = config['output_dim']
-        self.input_dim = config['input_dim']
-        self.edge_dim = config['edge_dim']
+        self.d_in_A = config['d_in_A']
+        self.d_in_B = config['d_in_B']
+        self.d_out = config['d_out']
+        self.d_F = config['d_F']
         self.minibatch_size = config['minibatch_size']
         self.name = config['name']
         self.directory = config['directory']
@@ -386,9 +362,10 @@ class GraphNeuralSolver:
             'hidden_layers': self.hidden_layers,
             'correction_updates': self.correction_updates,
             'non_lin': self.non_lin,
-            'output_dim': self.output_dim,
-            'input_dim': self.input_dim,
-            'edge_dim': self.edge_dim,
+            'd_in_A': self.d_in_A,
+            'd_in_B': self.d_in_B,
+            'd_out': self.d_out,
+            'd_F': self.d_F,
             'minibatch_size': self.minibatch_size,
             'name': self.name,
             'directory': self.directory,
