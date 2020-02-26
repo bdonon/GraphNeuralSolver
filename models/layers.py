@@ -86,51 +86,6 @@ def custom_scatter(indices_edges, params, shape):
 
     return scattered    
 
-def custom_scatter_jacobian(indices_from, indices_to, params, shape):
-    """
-    This computational graph module performs the scatter_nd operation while taking into account
-    the batch dimension. It creates matrices useful to compute the jacobian matrix. 
-    Note that here we can also have d instead of d_F
-
-    Inputs
-        - indices_from : tf tensor of shape [n_samples, n_edges], and type tf.int32
-        - indices_to : tf tensor of shape [n_samples, n_edges], and type tf.int32
-        - params : tf tensor of shape [n_samples, n_edges, d_F], and type tf.float32
-        - shape : tf.tensor of shape [3]
-    Output
-        - tf tensor of shape [n_samples, n_nodes, d_F] and type tf.float32
-    """
-
-    # Get all the relevant dimensions
-    n_samples = tf.shape(params)[0]                                 # tf.int32, [1]
-    n_nodes = shape[1]                                              # tf.int32, [1]
-    n_edges = tf.shape(params)[1]                                   # tf.int32, [1]
-    d_F = tf.shape(params)[2]                                       # tf.int32, [1]
-
-    # Build indices for the batch dimension
-    indices_batch_float = tf.linspace(0., tf.cast(n_samples, tf.float32)-1., n_samples)         
-                                                                    # tf.float32, [n_samples] 
-    indices_batch = tf.cast(indices_batch_float, tf.int32)          # tf.int32, [n_samples]
-    indices_batch = tf.expand_dims(indices_batch, 1) * tf.ones([1, n_edges], dtype=tf.int32)    
-                                                                    # tf.int32, [n_samples, n_edges]
-
-    # Stack batch and edge dimensions
-    indices = n_nodes**2 * indices_batch + n_nodes * indices_from + indices_to                  
-                                                                    # tf.int32, [n_samples, n_edges]
-    indices_flat = tf.reshape(indices, [-1, 1])                     # tf.int32, [n_samples * n_edges, 1]
-
-    # Flatten the edge parameters
-    params_flat = tf.reshape(params, [n_samples*n_edges, d_F])      # tf.float32, [n_samples * n_edges, d_F]
-
-    # Perform the scatter operation
-    scattered_flat = tf.scatter_nd(indices_flat, params_flat, shape=[n_samples*n_nodes*n_nodes, d_F])   
-                                                                    # tf.float32, [n_samples * n_nodes * n_nodes, d_F]
-
-    # Un-flatten the result of the scatter operation
-    scattered = tf.reshape(scattered_flat, [n_samples, n_nodes, n_nodes, d_F])                  
-                                                                    # tf.float32, [n_samples, n_nodes, n_nodes, d_F]
-
-    return scattered
 
 class FullyConnected:
     """

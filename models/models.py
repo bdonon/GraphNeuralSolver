@@ -276,7 +276,7 @@ class GraphNeuralSolver:
             self.correction = self.correction_block[str(update)](self.correction_input)
 
             # Apply correction, and extract the predictions from the latent message
-            self.H[str(update+1)] = self.H[str(update)] + self.correction * 1e-2
+            self.H[str(update+1)] = self.H[str(update)] + self.correction * 1e-3
 
             # Decode the first "output_dim" components of H
             # self.X[str(update+1)] = self.D(self.H[str(update+1)][:,:,:self.output_dim])
