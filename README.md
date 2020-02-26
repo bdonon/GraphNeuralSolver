@@ -1,5 +1,8 @@
 # Graph Neural Solver applied to a Linear System
 
+DISCLAIMER : I am currently modifying and refactoring this repo, so there are many things that won't work perfectly.
+
+
 This repo provides some code for:
 * Building a dataset of random linear systems
 * Building and training a Graph Neural Solver that solves these linear systems
