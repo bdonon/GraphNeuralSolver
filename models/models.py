@@ -11,7 +11,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.python.client import timeline
 
-from models.layers import FullyConnected, EquilibriumViolation, custom_gather, custom_scatter
+from models.layers import FullyConnected, custom_gather, custom_scatter #EquilibriumViolation
 
 class GraphNeuralSolver:
 
@@ -57,13 +57,15 @@ class GraphNeuralSolver:
             try:
                 # Try importing the dimensions associated to the problem
                 sys.path.append(self.default_data_directory)
-                from problem import Dimensions
+                from problem import Problem
 
-                self.dims = Dimensions()
-                self.d_in_A = self.dims.d_in_A
-                self.d_in_B = self.dims.d_in_B
-                self.d_out = self.dims.d_out
-                self.d_F = self.dims.d_F
+                self.problem = Problem()
+                self.d_in_A = self.problem.d_in_A
+                self.d_in_B = self.problem.d_in_B
+                self.d_out = self.problem.d_out
+                self.d_F = self.problem.d_F
+
+                print(self.d_in_B)
 
             except ImportError:
                 print('You should provide a compatible "problem.py" file in your data folder!')
@@ -153,8 +155,8 @@ class GraphNeuralSolver:
         #     output_dim=self.d_out
         # )
 
-        # Build operation that computes the distance to the target equation
-        self.loss_function = EquilibriumViolation(self.default_data_directory)
+        
+        #self.loss_function = self.cost_function EquilibriumViolation(self.default_data_directory)
 
     def build_graph(self, default_data_directory):
         """
@@ -227,7 +229,7 @@ class GraphNeuralSolver:
         self.X = {}
         self.loss = {}
         self.log_loss = {}
-        self.error = {}
+        self.cost_per_sample = {}
         self.total_loss = None
 
         # Initialize latent message and prediction to 0
@@ -284,7 +286,9 @@ class GraphNeuralSolver:
             self.X[str(update+1)] = self.D[str(update+1)](self.H[str(update+1)])
 
             # Compute the violation of the desired equation
-            self.loss[str(update+1)], self.error[str(update+1)] = self.loss_function(self.X[str(update+1)], self.A, self.B)
+            #self.loss[str(update+1)], self.error[str(update+1)] = self.loss_function(self.X[str(update+1)], self.A, self.B)
+            self.cost_per_sample[str(update+1)] = self.problem.cost_function(self.X[str(update+1)], self.A, self.B)
+            self.loss[str(update+1)] = tf.reduce_mean(self.cost_per_sample[str(update+1)])
             tf.compat.v1.summary.scalar("loss_{}".format(update+1), self.loss[str(update+1)])
 
             # Compute the discounted loss

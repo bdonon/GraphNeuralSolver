@@ -3,7 +3,6 @@ import os
 
 import tensorflow as tf
 
-
 def custom_gather(params, indices_edges):
     """
     This computational graph module performs the gather_nd operation while taking into account
@@ -84,8 +83,7 @@ def custom_scatter(indices_edges, params, shape):
     # Un-flatten the result of the scatter operation
     scattered = tf.reshape(scattered_flat, [n_samples, n_nodes, d_F])   # tf.float32, [n_samples, n_nodes, d_F]
 
-    return scattered    
-
+    return scattered
 
 class FullyConnected:
     """
@@ -186,97 +184,97 @@ class FullyConnected:
 
         return tf.reshape(h, [n_samples, n_elem, -1])
 
-class EquilibriumViolation:
-    """
-    Computes the violation of the target equations defined by:
-        - a local force template;
-        - an hypergraph instance
-    """
+# class EquilibriumViolation:
+#     """
+#     Computes the violation of the target equations defined by:
+#         - a local force template;
+#         - an hypergraph instance
+#     """
 
-    def __init__(self, path_to_data):
-        """
-        Import a force template.
+#     def __init__(self, path_to_data):
+#         """
+#         Import a force template.
 
-        Params:
-            - path_to_data : string, path to a valid dataset that contains a forces.py file
-        """
+#         Params:
+#             - path_to_data : string, path to a valid dataset that contains a forces.py file
+#         """
 
-        self.path_to_data = path_to_data
+#         self.path_to_data = path_to_data
 
-        try:
-            # Try importing the force template located in the dataset folder
-            sys.path.append(self.path_to_data)
-            from problem import Forces, Dimensions
-            self.forces = Forces()
-            self.dims = Dimensions()
+#         try:
+#             # Try importing the force template located in the dataset folder
+#             sys.path.append(self.path_to_data)
+#             from problem import Forces, Dimensions
+#             self.forces = Forces()
+#             self.dims = Dimensions()
 
-        except ImportError:
-            print('You should provide a compatible "problem.py" file in your data folder!')
+#         except ImportError:
+#             print('You should provide a compatible "problem.py" file in your data folder!')
 
 
-    def error_tensor(self, X, A, B):
-        """
-        This computes for each node of each graph the sum of all the forces.
+#     def error_tensor(self, X, A, B):
+#         """
+#         This computes for each node of each graph the sum of all the forces.
 
-        Inputs
-            - X : tensor of shape [n_samples, n_nodes, d_out]
-            - A : tensor of shape [n_samples, n_edges, 2+d_in_A]
-            - B : tensor of shape [n_samples, n_nodes, d_in_B]
-        Output
-            - Err : tensor of shape [n_samples, n_nodes, d_F]
-        """
+#         Inputs
+#             - X : tensor of shape [n_samples, n_nodes, d_out]
+#             - A : tensor of shape [n_samples, n_edges, 2+d_in_A]
+#             - B : tensor of shape [n_samples, n_nodes, d_in_B]
+#         Output
+#             - Err : tensor of shape [n_samples, n_nodes, d_F]
+#         """
 
-        d_out = self.dims.d_out                                   # tf.int32, [1]
-        n_samples = tf.shape(X)[0]                                  # tf.int32, [1]
-        n_nodes = tf.shape(X)[1]                                    # tf.int32, [1]
-        n_edges = tf.shape(A)[1]                                    # tf.int32, [1]
+#         d_out = self.dims.d_out                                   # tf.int32, [1]
+#         n_samples = tf.shape(X)[0]                                  # tf.int32, [1]
+#         n_nodes = tf.shape(X)[1]                                    # tf.int32, [1]
+#         n_edges = tf.shape(A)[1]                                    # tf.int32, [1]
 
-        # Get how many equalities should hold at each node
-        d_F = self.dims.d_F                                       # tf.int32, [1]
+#         # Get how many equalities should hold at each node
+#         d_F = self.dims.d_F                                       # tf.int32, [1]
 
-        # Extract indices from A matrix
-        indices_from = tf.cast(A[:,:,0], tf.int32)                  # tf.int32, [n_samples, n_edges, 1]
-        indices_to = tf.cast(A[:,:,1], tf.int32)                    # tf.int32, [n_samples, n_edges, 1]
+#         # Extract indices from A matrix
+#         indices_from = tf.cast(A[:,:,0], tf.int32)                  # tf.int32, [n_samples, n_edges, 1]
+#         indices_to = tf.cast(A[:,:,1], tf.int32)                    # tf.int32, [n_samples, n_edges, 1]
 
-        # Extact edge characteristics from A matrix
-        A_ij = A[:,:,2:]                                            # tf.float32, [n_samples, n_edge, d_in_A]
+#         # Extact edge characteristics from A matrix
+#         A_ij = A[:,:,2:]                                            # tf.float32, [n_samples, n_edge, d_in_A]
 
-        # Gather X on both sides of each edge
-        X_i = custom_gather(X, indices_from)                        # tf.float32, [n_samples , n_edges, d_out]
-        X_j = custom_gather(X, indices_to)                          # tf.float32, [n_samples , n_edges, d_out]
+#         # Gather X on both sides of each edge
+#         X_i = custom_gather(X, indices_from)                        # tf.float32, [n_samples , n_edges, d_out]
+#         X_j = custom_gather(X, indices_to)                          # tf.float32, [n_samples , n_edges, d_out]
 
-        # Compute interaction forces for each edge
-        F_bar = self.forces.F_bar(X_i, X_j, A_ij)                   # tf.float32, [n_samples, n_edges, d_F]
+#         # Compute interaction forces for each edge
+#         F_bar = self.forces.F_bar(X_i, X_j, A_ij)                   # tf.float32, [n_samples, n_edges, d_F]
 
-        # Scatter the interaction forces from edges to nodes
-        F_bar_sum = custom_scatter(indices_from, F_bar, [n_samples, n_nodes, d_F])      
-                                                                    # tf.float32, [n_samples, n_nodes, d_F]
+#         # Scatter the interaction forces from edges to nodes
+#         F_bar_sum = custom_scatter(indices_from, F_bar, [n_samples, n_nodes, d_F])      
+#                                                                     # tf.float32, [n_samples, n_nodes, d_F]
 
-        # Compute counteraction forces for each node
-        F_round = self.forces.F_round(X, B)                         # tf.float32, [n_samples, n_nodes, d_F]
+#         # Compute counteraction forces for each node
+#         F_round = self.forces.F_round(X, B)                         # tf.float32, [n_samples, n_nodes, d_F]
 
-        # Sum all forces applied to each node
-        Err = F_round + F_bar_sum                                   # tf.float32, [n_samples, n_nodes, d_F]
+#         # Sum all forces applied to each node
+#         Err = F_round + F_bar_sum                                   # tf.float32, [n_samples, n_nodes, d_F]
 
-        return Err
+#         return Err
 
-    def __call__(self, X, A, B):
-        """
-        Computes a surrogate for the distance between our prediction and the ground truth.
-        This surrogate is exact in the case of linear systems.
+#     def __call__(self, X, A, B):
+#         """
+#         Computes a surrogate for the distance between our prediction and the ground truth.
+#         This surrogate is exact in the case of linear systems.
 
-        Inputs
-            - X : tensor of shape [n_samples, n_nodes, d_out]
-            - A : tensor of shape [n_samples, n_edges, 2+d_in_A]
-            - B : tensor of shape [n_samples, n_nodes, d_in_B]
+#         Inputs
+#             - X : tensor of shape [n_samples, n_nodes, d_out]
+#             - A : tensor of shape [n_samples, n_edges, 2+d_in_A]
+#             - B : tensor of shape [n_samples, n_nodes, d_in_B]
 
-        Output
-            - loss : tensor of shape [1]
-        """
+#         Output
+#             - loss : tensor of shape [1]
+#         """
 
-        # Get error tensors
-        error = self.error_tensor(X, A, B)                          # tf.float32, [n_samples, n_nodes, d_F]
+#         # Get error tensors
+#         error = self.error_tensor(X, A, B)                          # tf.float32, [n_samples, n_nodes, d_F]
 
-        loss = tf.reduce_mean(error**2)
+#         loss = tf.reduce_mean(error**2)
 
         return loss, error
