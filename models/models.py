@@ -41,6 +41,16 @@ class GraphNeuralSolver:
         # Initialize list of trainable variables
         self.trainable_variables = []
 
+        try:
+            # Try importing the dimensions associated to the problem
+            sys.path.append(self.default_data_directory)
+            from problem import Problem
+
+            self.problem = Problem()
+
+        except ImportError:
+            print('You should provide a compatible "problem.py" file in your data folder!')
+
         # Reload config if there is a model to restore
         if (model_to_restore is not None) and os.path.exists(model_to_restore):
 
@@ -53,22 +63,11 @@ class GraphNeuralSolver:
             self.set_config(config)
 
         else:
-            # Get the data dimensions
-            try:
-                # Try importing the dimensions associated to the problem
-                sys.path.append(self.default_data_directory)
-                from problem import Problem
-
-                self.problem = Problem()
-                self.d_in_A = self.problem.d_in_A
-                self.d_in_B = self.problem.d_in_B
-                self.d_out = self.problem.d_out
-                self.d_F = self.problem.d_F
-
-                print(self.d_in_B)
-
-            except ImportError:
-                print('You should provide a compatible "problem.py" file in your data folder!')
+        
+            self.d_in_A = self.problem.d_in_A
+            self.d_in_B = self.problem.d_in_B
+            self.d_out = self.problem.d_out
+            self.d_F = self.problem.d_F
 
         # Build weight tensors
         self.build_weights()

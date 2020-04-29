@@ -122,7 +122,7 @@ if __name__ == '__main__':
     for x in itertools.product(
         args.learning_rate, 
         args.discount,
-        args.beta,
+        # args.beta,
         args.latent_dimension,
         args.hidden_layers,
         args.correction_updates,
