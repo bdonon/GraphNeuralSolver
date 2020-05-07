@@ -20,6 +20,7 @@ class GraphNeuralSolver:
         latent_dimension=10,
         hidden_layers=3,
         correction_updates=5,
+        alpha=1e-3,
         non_lin='leaky_relu',
         minibatch_size=10,
         name='graph_neural_solver',
@@ -31,6 +32,7 @@ class GraphNeuralSolver:
         self.latent_dimension = latent_dimension
         self.hidden_layers = hidden_layers
         self.correction_updates = correction_updates
+        self.alpha = alpha
         self.non_lin = non_lin
         self.minibatch_size = minibatch_size
         self.name = name
@@ -68,6 +70,7 @@ class GraphNeuralSolver:
             self.d_in_B = self.problem.d_in_B
             self.d_out = self.problem.d_out
             self.d_F = self.problem.d_F
+            self.initial_U = self.problem.initial_U
 
         # Build weight tensors
         self.build_weights()
@@ -234,7 +237,9 @@ class GraphNeuralSolver:
         # Initialize latent message and prediction to 0
         self.H['0'] = tf.zeros([self.minibatch_size_tf, self.num_nodes, self.latent_dimension])
         #self.X['0'] = self.D(self.H['0'])
-        self.X['0'] = self.D['0'](self.H['0'])
+        self.initial_U_tf = tf.ones([self.minibatch_size_tf, self.num_nodes, 1]) * \
+            tf.reshape(tf.constant(self.initial_U, dtype=tf.float32), [1, 1, self.d_out])
+        self.X['0'] = self.D['0'](self.H['0']) + self.initial_U_tf
 
         # Iterate over every correction update
         for update in range(self.correction_updates):
@@ -277,12 +282,12 @@ class GraphNeuralSolver:
             self.correction = self.correction_block[str(update)](self.correction_input)
 
             # Apply correction, and extract the predictions from the latent message
-            self.H[str(update+1)] = self.H[str(update)] + self.correction * 1e-3
+            self.H[str(update+1)] = self.H[str(update)] + self.correction * self.alpha
 
             # Decode the first "output_dim" components of H
             # self.X[str(update+1)] = self.D(self.H[str(update+1)][:,:,:self.output_dim])
             #self.X[str(update+1)] = self.D(self.H[str(update+1)])
-            self.X[str(update+1)] = self.D[str(update+1)](self.H[str(update+1)])
+            self.X[str(update+1)] = self.D[str(update+1)](self.H[str(update+1)]) + self.initial_U_tf
 
             # Compute the violation of the desired equation
             #self.loss[str(update+1)], self.error[str(update+1)] = self.loss_function(self.X[str(update+1)], self.A, self.B)
@@ -339,6 +344,7 @@ class GraphNeuralSolver:
         logging.info('        Latent dimensions : {}'.format(self.latent_dimension))
         logging.info('        Number of hidden layers per block : {}'.format(self.hidden_layers))
         logging.info('        Number of correction updates : {}'.format(self.correction_updates))
+        logging.info('        Alpha : {}'.format(self.alpha))
         logging.info('        Non linearity : {}'.format(self.non_lin))
         logging.info('        d_in_A : {}'.format(self.d_in_A))
         logging.info('        d_in_B : {}'.format(self.d_in_B))
@@ -347,6 +353,7 @@ class GraphNeuralSolver:
         logging.info('        Minibatch size : {}'.format(self.minibatch_size))
         logging.info('        Current training iteration : {}'.format(self.current_train_iter))
         logging.info('        Model name : ' + self.name)
+        logging.info('        Initial U : {}'.format(self.initial_U))
 
     def set_config(self, config):
         """
@@ -356,6 +363,7 @@ class GraphNeuralSolver:
         self.latent_dimension = config['latent_dimension']
         self.hidden_layers = config['hidden_layers']
         self.correction_updates = config['correction_updates']
+        self.alpha = config['alpha']
         self.non_lin = config['non_lin']
         self.d_in_A = config['d_in_A']
         self.d_in_B = config['d_in_B']
@@ -365,7 +373,7 @@ class GraphNeuralSolver:
         self.name = config['name']
         self.directory = config['directory']
         self.current_train_iter = config['current_train_iter']
-
+        self.initial_U = np.array(config['initial_U'])
 
     def get_config(self):
         """
@@ -376,6 +384,7 @@ class GraphNeuralSolver:
             'latent_dimension': self.latent_dimension,
             'hidden_layers': self.hidden_layers,
             'correction_updates': self.correction_updates,
+            'alpha': self.alpha,
             'non_lin': self.non_lin,
             'd_in_A': self.d_in_A,
             'd_in_B': self.d_in_B,
@@ -384,7 +393,8 @@ class GraphNeuralSolver:
             'minibatch_size': self.minibatch_size,
             'name': self.name,
             'directory': self.directory,
-            'current_train_iter': self.current_train_iter
+            'current_train_iter': self.current_train_iter,
+            'initial_U': list(self.initial_U)
         } 
         return config
 

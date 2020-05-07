@@ -51,6 +51,8 @@ parser.add_argument('--hidden_layers', type=int, default=[2, 3], nargs='+',
     help='Number of hidden layers in each neural network block')
 parser.add_argument('--correction_updates', type=int, default=[10], nargs='+',
     help='Number of correction update of the neural network')
+parser.add_argument('--alpha', type=float, default=[1e-3], nargs='+',
+    help='Multiplicative factor for correction updates')
 parser.add_argument('--non_linearity', type=str, default=['leaky_relu'], nargs='+',
     help='Non linearity of the neural network')
 
@@ -113,6 +115,7 @@ if __name__ == '__main__':
     logging.info('        Latent dimension : {}'.format(args.latent_dimension))
     logging.info('        Number of hidden layers : {}'.format(args.hidden_layers))
     logging.info('        Number of correction updates : {}'.format(args.correction_updates))
+    logging.info('        Alpha : {}'.format(args.alpha))
     logging.info('        Type of non linearity : {}'.format(args.non_linearity))
 
     # Initialize best validation loss
@@ -133,8 +136,8 @@ if __name__ == '__main__':
         learning_rate, discount, latent_dimension, hidden_layers, correction_updates, non_linearity = x
 
         # Create a dir that explicitely states all the parameters
-        model_dir_name = 'lr_{}_dsct_{}__hdm_{}_hly_{}_cup_{}_nli_{}'.format(learning_rate, 
-            discount, latent_dimension, hidden_layers, correction_updates, non_linearity)
+        model_dir_name = 'lr_{}_dsct_{}__hdm_{}_hly_{}_cup_{}_alp{}_nli_{}'.format(learning_rate, 
+            discount, latent_dimension, hidden_layers, correction_updates, alpha, non_linearity)
         model_dir = os.path.join(grid_search_dir, model_dir_name) 
         if not os.path.exists(model_dir):
             os.makedirs(model_dir)
@@ -148,6 +151,7 @@ if __name__ == '__main__':
             latent_dimension=latent_dimension,
             hidden_layers=hidden_layers,
             correction_updates=correction_updates,
+            alpha=alpha,
             non_lin=non_linearity,
             minibatch_size=args.minibatch_size,
             name='gns',

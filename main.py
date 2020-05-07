@@ -49,6 +49,8 @@ parser.add_argument('--hidden_layers', type=int, default=3,
     help='Number of hidden layers in each neural network block')
 parser.add_argument('--correction_updates', type=int, default=15,
     help='Number of correction update of the neural network')
+parser.add_argument('--alpha', type=float, default=1e-3,
+    help='Multiplicative factor for correction updates')
 parser.add_argument('--non_linearity', type=str, default='leaky_relu',
     help='Non linearity of the neural network')
 
@@ -131,6 +133,7 @@ if __name__ == '__main__':
             latent_dimension=args.latent_dimension,
             hidden_layers=args.hidden_layers,
             correction_updates=args.correction_updates,
+            alpha=args.alpha,
             non_lin=args.non_linearity,
             minibatch_size=args.minibatch_size,
             name='gns',
