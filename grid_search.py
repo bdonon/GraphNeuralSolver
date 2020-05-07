@@ -129,11 +129,12 @@ if __name__ == '__main__':
         args.latent_dimension,
         args.hidden_layers,
         args.correction_updates,
+        args.alpha,
         args.non_linearity
         ):
 
         # Get combination
-        learning_rate, discount, latent_dimension, hidden_layers, correction_updates, non_linearity = x
+        learning_rate, discount, latent_dimension, hidden_layers, correction_updates, alpha, non_linearity = x
 
         # Create a dir that explicitely states all the parameters
         model_dir_name = 'lr_{}_dsct_{}__hdm_{}_hly_{}_cup_{}_alp{}_nli_{}'.format(learning_rate, 
