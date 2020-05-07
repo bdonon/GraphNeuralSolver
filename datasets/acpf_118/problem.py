@@ -1,6 +1,6 @@
 # This file defines the interaction and counteraction forces, as well as their first order derivatives
 import tensorflow as tf
-
+import numpy as np
 
 def custom_gather(params, indices_edges):
     """
@@ -102,6 +102,8 @@ class Problem:
         # How many equations should how for each node
         self.d_F = 1
 
+        self.initial_U = np.array([1.,0.])
+
     def cost_function(self, X, A, B):
 
         # Gather instances dimensions (samples, nodes and edges)
@@ -134,11 +136,11 @@ class Problem:
         delta_Q = B[:,:,2:3] * (- B[:,:,1:2] + custom_scatter(indices_from, Q_ij, [n_samples, n_nodes, 1]))**2
         delta_V = (1-B[:,:,2:3]) * (X[:,:,0:1] - B[:,:,3:4])**2
 
-        cost_per_sample = 1e-8 * tf.reduce_mean(delta_P, axis=[1,2]) \
-            + 1e-8 * tf.reduce_mean(delta_Q, axis=[1,2]) \
-            + tf.reduce_mean(delta_V, axis=[1,2])
+        cost_per_sample =  tf.reduce_mean(delta_P, axis=[1,2]) / tf.reduce_mean(B[:,:,0:1]**2, axis=[1,2])\
+            + tf.reduce_mean(delta_Q, axis=[1,2]) / tf.reduce_mean(B[:,:,1:2]**2, axis=[1,2])\
+            + tf.reduce_mean(delta_V, axis=[1,2]) / tf.reduce_mean(B[:,:,3:4]**2, axis=[1,2])
 
-        return cost_per_sample
+        return cost_per_sample #/ 1e10
 
 
 

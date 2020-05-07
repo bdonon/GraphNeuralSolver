@@ -137,8 +137,8 @@ class Problem:
         delta_V = (1-B[:,:,2:3]) * (X[:,:,0:1] - B[:,:,3:4])**2
 
         cost_per_sample =  tf.reduce_mean(delta_P, axis=[1,2]) / tf.reduce_mean(B[:,:,0:1]**2, axis=[1,2])\
-            + tf.reduce_mean(delta_Q / tf.reduce_mean(B[:,:,1:2]**2, axis=[1,2]) +\
-            delta_V / tf.reduce_mean(B[:,:,3:4]**2, axis=[1,2]))
+            + tf.reduce_mean(delta_Q, axis=[1,2]) / tf.reduce_mean(B[:,:,1:2]**2, axis=[1,2])\
+            + tf.reduce_mean(delta_V, axis=[1,2]) / tf.reduce_mean(B[:,:,3:4]**2, axis=[1,2])
 
         return cost_per_sample #/ 1e10
 
