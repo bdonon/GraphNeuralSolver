@@ -104,6 +104,12 @@ class Problem:
 
         self.initial_U = np.array([1.,0.])
 
+        # Normalization constants
+        self.B_mean = np.array([0, -9.89, 0.638, 0.374, 0.071428])
+        self.B_std = np.array([258, 27.29, 0.39, 0.41, 0.027])
+        self.A_mean = np.array([0.0, 0.0, 54251, 0.84])
+        self.A_std = np.array([1.0, 1.0, 104989, 1.4])
+
     def cost_function(self, X, A, B):
 
         # Gather instances dimensions (samples, nodes and edges)
@@ -117,13 +123,13 @@ class Problem:
 
         # Extact edge characteristics from A matrix
         A1_ij = A[:,:,2:3]                                            # tf.float32, [n_samples, n_edge, d_in_A]
-        A2_ij = A[:,:,3:]                                            # tf.float32, [n_samples, n_edge, d_in_A]
+        A2_ij = A[:,:,3:4]                                            # tf.float32, [n_samples, n_edge, d_in_A]
 
 
         # Gather X on both sides of each edge
-        X1_i = custom_gather(X[:,:,0:1], indices_from)                        # tf.float32, [n_samples , n_edges, d_out]
+        X1_i = custom_gather(B[:,:,2:3]*X[:,:,0:1] + (1-B[:,:,2:3])*B[:,:,3:4], indices_from)                        # tf.float32, [n_samples , n_edges, d_out]
         X2_i = custom_gather(X[:,:,1:2], indices_from)                        # tf.float32, [n_samples , n_edges, d_out]
-        X1_j = custom_gather(X[:,:,0:1], indices_to)                        # tf.float32, [n_samples , n_edges, d_out]
+        X1_j = custom_gather(B[:,:,2:3]*X[:,:,0:1] + (1-B[:,:,2:3])*B[:,:,3:4], indices_to)                        # tf.float32, [n_samples , n_edges, d_out]
         X2_j = custom_gather(X[:,:,1:2], indices_to)                        # tf.float32, [n_samples , n_edges, d_out]
 
 
@@ -133,14 +139,21 @@ class Problem:
 
 
         delta_P = (1-B[:,:,4:5]) * (- B[:,:,0:1] + custom_scatter(indices_from, P_ij, [n_samples, n_nodes, 1]))**2
+        #delta_P = (- B[:,:,0:1] + custom_scatter(indices_from, P_ij, [n_samples, n_nodes, 1]))**2
         delta_Q = B[:,:,2:3] * (- B[:,:,1:2] + custom_scatter(indices_from, Q_ij, [n_samples, n_nodes, 1]))**2
         delta_V = (1-B[:,:,2:3]) * (X[:,:,0:1] - B[:,:,3:4])**2
 
-        cost_per_sample =  tf.reduce_mean(delta_P, axis=[1,2]) / tf.reduce_mean(B[:,:,0:1]**2, axis=[1,2])\
-            + tf.reduce_mean(delta_Q, axis=[1,2]) / tf.reduce_mean(B[:,:,1:2]**2, axis=[1,2])\
-            + tf.reduce_mean(delta_V, axis=[1,2]) / tf.reduce_mean(B[:,:,3:4]**2, axis=[1,2])
+        # cost_per_sample =  tf.reduce_mean(delta_P, axis=[1,2]) / tf.reduce_mean((1-B[:,:,4:5])*B[:,:,0:1]**2, axis=[1,2])\
+        #     + tf.reduce_mean(delta_Q, axis=[1,2]) / tf.reduce_mean(B[:,:,2:3] * B[:,:,1:2]**2, axis=[1,2])\
+        #     + tf.reduce_mean(delta_V, axis=[1,2]) / tf.reduce_mean((1-B[:,:,2:3])*B[:,:,3:4]**2, axis=[1,2])
 
-        return cost_per_sample #/ 1e10
+        cost_per_sample =  tf.reduce_mean(delta_P, axis=[1,2]) / 1e8 \
+            + tf.reduce_mean(delta_Q, axis=[1,2]) / 1e8 \
+            + tf.reduce_mean(delta_V, axis=[1,2]) 
+
+        #cost_per_sample = tf.reduce_mean(delta_V, axis=[1,2]) / tf.reduce_mean((1-B[:,:,2:3])*B[:,:,3:4]**2, axis=[1,2])
+
+        return cost_per_sample#, tf.reduce_mean(delta_P, axis=[1,2]), tf.reduce_mean(delta_Q, axis=[1,2]), tf.reduce_mean(delta_V, axis=[1,2]) #/ 1e10
 
 
 

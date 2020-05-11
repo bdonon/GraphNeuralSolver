@@ -11,7 +11,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.python.client import timeline
 
-from models.layers import FullyConnected, custom_gather, custom_scatter #EquilibriumViolation
+from models.layers import FullyConnected, EquilibriumViolation, custom_gather, custom_scatter
 
 class GraphNeuralSolver:
 
@@ -20,7 +20,6 @@ class GraphNeuralSolver:
         latent_dimension=10,
         hidden_layers=3,
         correction_updates=5,
-        alpha=1e-3,
         non_lin='leaky_relu',
         minibatch_size=10,
         name='graph_neural_solver',
@@ -32,7 +31,6 @@ class GraphNeuralSolver:
         self.latent_dimension = latent_dimension
         self.hidden_layers = hidden_layers
         self.correction_updates = correction_updates
-        self.alpha = alpha
         self.non_lin = non_lin
         self.minibatch_size = minibatch_size
         self.name = name
@@ -42,16 +40,6 @@ class GraphNeuralSolver:
 
         # Initialize list of trainable variables
         self.trainable_variables = []
-
-        try:
-            # Try importing the dimensions associated to the problem
-            sys.path.append(self.default_data_directory)
-            from problem import Problem
-
-            self.problem = Problem()
-
-        except ImportError:
-            print('You should provide a compatible "problem.py" file in your data folder!')
 
         # Reload config if there is a model to restore
         if (model_to_restore is not None) and os.path.exists(model_to_restore):
@@ -65,18 +53,20 @@ class GraphNeuralSolver:
             self.set_config(config)
 
         else:
-        
-            self.d_in_A = self.problem.d_in_A
-            self.d_in_B = self.problem.d_in_B
-            self.d_out = self.problem.d_out
-            self.d_F = self.problem.d_F
-            self.initial_U = self.problem.initial_U
+            # Get the data dimensions
+            try:
+                # Try importing the dimensions associated to the problem
+                sys.path.append(self.default_data_directory)
+                from problem import Dimensions
 
-            # Normalization constants
-            self.B_mean = self.problem.B_mean
-            self.B_std = self.problem.B_std
-            self.A_mean = self.problem.A_mean
-            self.A_std = self.problem.A_std
+                self.dims = Dimensions()
+                self.d_in_A = self.dims.d_in_A
+                self.d_in_B = self.dims.d_in_B
+                self.d_out = self.dims.d_out
+                self.d_F = self.dims.d_F
+
+            except ImportError:
+                print('You should provide a compatible "problem.py" file in your data folder!')
 
         # Build weight tensors
         self.build_weights()
@@ -163,8 +153,8 @@ class GraphNeuralSolver:
         #     output_dim=self.d_out
         # )
 
-        
-        #self.loss_function = self.cost_function EquilibriumViolation(self.default_data_directory)
+        # Build operation that computes the distance to the target equation
+        self.loss_function = EquilibriumViolation(self.default_data_directory)
 
     def build_graph(self, default_data_directory):
         """
@@ -211,26 +201,11 @@ class GraphNeuralSolver:
         self.A = tf.reshape(self.A_flat, [self.minibatch_size_, -1, self.d_in_A+2])
         self.B = tf.reshape(self.B_flat, [self.minibatch_size_, -1, self.d_in_B])
 
-
-
         # Get relevant tensor dimensions
         self.minibatch_size_tf = tf.shape(self.A)[0]
         self.num_nodes = tf.shape(self.B)[1]
         self.num_edges = tf.shape(self.A)[1]
         self.A_dim = tf.shape(self.A)[2]
-
-        # Normalizing input data
-        self.A_mean_tf = tf.ones([self.minibatch_size_tf, self.num_edges, 1]) * \
-            tf.reshape(tf.constant(self.A_mean, dtype=tf.float32), [1, 1, 2+self.d_in_A])
-        self.A_std_tf = tf.ones([self.minibatch_size_tf, self.num_edges, 1]) * \
-            tf.reshape(tf.constant(self.A_std, dtype=tf.float32), [1, 1, 2+self.d_in_A])
-        self.B_mean_tf = tf.ones([self.minibatch_size_tf, self.num_nodes, 1]) * \
-            tf.reshape(tf.constant(self.B_mean, dtype=tf.float32), [1, 1, self.d_in_B])
-        self.B_std_tf = tf.ones([self.minibatch_size_tf, self.num_nodes, 1]) * \
-            tf.reshape(tf.constant(self.B_std, dtype=tf.float32), [1, 1, self.d_in_B])
-
-        self.a = (self.A - self.A_mean_tf) / self.A_std_tf
-        self.b = (self.B - self.B_mean_tf) / self.B_std_tf
 
         # Extract indices from matrix A
         self.indices_from = tf.cast(self.A[:,:,0], tf.int32)
@@ -241,7 +216,7 @@ class GraphNeuralSolver:
         self.mask_loop = tf.expand_dims(self.mask_loop, -1)
 
         # Extract edge characteristics from matrix A
-        self.a_ij = self.a[:,:,2:]
+        self.A_ij = self.A[:,:,2:]
 
         # Initialize the discount factor that will later be updated
         self.discount = tf.Variable(0., trainable=False)
@@ -252,20 +227,13 @@ class GraphNeuralSolver:
         self.X = {}
         self.loss = {}
         self.log_loss = {}
-        self.cost_per_sample = {}
-        self.delta_P = {}
-        self.delta_Q = {}
-        self.delta_V = {}
+        self.error = {}
         self.total_loss = None
-
-
 
         # Initialize latent message and prediction to 0
         self.H['0'] = tf.zeros([self.minibatch_size_tf, self.num_nodes, self.latent_dimension])
         #self.X['0'] = self.D(self.H['0'])
-        self.initial_U_tf = tf.ones([self.minibatch_size_tf, self.num_nodes, 1]) * \
-            tf.reshape(tf.constant(self.initial_U, dtype=tf.float32), [1, 1, self.d_out])
-        self.X['0'] = self.D['0'](self.H['0']) + self.initial_U_tf
+        self.X['0'] = self.D['0'](self.H['0'])
 
         # Iterate over every correction update
         for update in range(self.correction_updates):
@@ -275,7 +243,7 @@ class GraphNeuralSolver:
             self.H_to = custom_gather(self.H[str(update)], self.indices_to)
 
             # Concatenate all the inputs of the phi neural network
-            self.Phi_input = tf.concat([self.H_from, self.H_to, self.a_ij], axis=2)
+            self.Phi_input = tf.concat([self.H_from, self.H_to, self.A_ij], axis=2)
 
             # Compute the phi using the dedicated neural network blocks
             self.Phi_from = self.phi_from[str(update)](self.Phi_input) * (1.-self.mask_loop)
@@ -299,27 +267,24 @@ class GraphNeuralSolver:
             # Concatenate all the inputs of the correction neural network
             self.correction_input = tf.concat([
                 self.H[str(update)],
+                self.B,
                 self.Phi_from_sum,
                 self.Phi_to_sum,
-                self.Phi_loop_sum,
-                self.b], axis=2)
+                self.Phi_loop_sum], axis=2)
 
             # Compute the correction using the dedicated neural network block
             self.correction = self.correction_block[str(update)](self.correction_input)
 
             # Apply correction, and extract the predictions from the latent message
-            self.H[str(update+1)] = self.H[str(update)] + self.correction * self.alpha
+            self.H[str(update+1)] = self.H[str(update)] + self.correction * 1e-3
 
             # Decode the first "output_dim" components of H
             # self.X[str(update+1)] = self.D(self.H[str(update+1)][:,:,:self.output_dim])
             #self.X[str(update+1)] = self.D(self.H[str(update+1)])
-            self.X[str(update+1)] = self.D[str(update+1)](self.H[str(update+1)]) + self.initial_U_tf
+            self.X[str(update+1)] = self.D[str(update+1)](self.H[str(update+1)])
 
             # Compute the violation of the desired equation
-            #self.loss[str(update+1)], self.error[str(update+1)] = self.loss_function(self.X[str(update+1)], self.A, self.B)
-            #self.cost_per_sample[str(update+1)], self.delta_P[str(update+1)], self.delta_Q[str(update+1)], self.delta_V[str(update+1)] = self.problem.cost_function(self.X[str(update+1)], self.A, self.B)
-            self.cost_per_sample[str(update+1)] = self.problem.cost_function(self.X[str(update+1)], self.A, self.B)
-            self.loss[str(update+1)] = tf.reduce_mean(self.cost_per_sample[str(update+1)])
+            self.loss[str(update+1)], self.error[str(update+1)] = self.loss_function(self.X[str(update+1)], self.A, self.B)
             tf.compat.v1.summary.scalar("loss_{}".format(update+1), self.loss[str(update+1)])
 
             # Compute the discounted loss
@@ -371,7 +336,6 @@ class GraphNeuralSolver:
         logging.info('        Latent dimensions : {}'.format(self.latent_dimension))
         logging.info('        Number of hidden layers per block : {}'.format(self.hidden_layers))
         logging.info('        Number of correction updates : {}'.format(self.correction_updates))
-        logging.info('        Alpha : {}'.format(self.alpha))
         logging.info('        Non linearity : {}'.format(self.non_lin))
         logging.info('        d_in_A : {}'.format(self.d_in_A))
         logging.info('        d_in_B : {}'.format(self.d_in_B))
@@ -380,11 +344,6 @@ class GraphNeuralSolver:
         logging.info('        Minibatch size : {}'.format(self.minibatch_size))
         logging.info('        Current training iteration : {}'.format(self.current_train_iter))
         logging.info('        Model name : ' + self.name)
-        logging.info('        Initial U : {}'.format(self.initial_U))
-        logging.info('        A mean : {}'.format(self.A_mean))
-        logging.info('        A std : {}'.format(self.A_std))
-        logging.info('        B mean : {}'.format(self.B_mean))
-        logging.info('        B std : {}'.format(self.B_std))
 
     def set_config(self, config):
         """
@@ -394,7 +353,6 @@ class GraphNeuralSolver:
         self.latent_dimension = config['latent_dimension']
         self.hidden_layers = config['hidden_layers']
         self.correction_updates = config['correction_updates']
-        self.alpha = config['alpha']
         self.non_lin = config['non_lin']
         self.d_in_A = config['d_in_A']
         self.d_in_B = config['d_in_B']
@@ -404,11 +362,7 @@ class GraphNeuralSolver:
         self.name = config['name']
         self.directory = config['directory']
         self.current_train_iter = config['current_train_iter']
-        self.initial_U = np.array(config['initial_U'])
-        self.A_mean = np.array(config['A_mean'])
-        self.A_std = np.array(config['A_std'])
-        self.B_mean = np.array(config['B_mean'])
-        self.B_std = np.array(config['B_std'])
+
 
     def get_config(self):
         """
@@ -419,7 +373,6 @@ class GraphNeuralSolver:
             'latent_dimension': self.latent_dimension,
             'hidden_layers': self.hidden_layers,
             'correction_updates': self.correction_updates,
-            'alpha': self.alpha,
             'non_lin': self.non_lin,
             'd_in_A': self.d_in_A,
             'd_in_B': self.d_in_B,
@@ -428,12 +381,7 @@ class GraphNeuralSolver:
             'minibatch_size': self.minibatch_size,
             'name': self.name,
             'directory': self.directory,
-            'current_train_iter': self.current_train_iter,
-            'initial_U': list(self.initial_U),
-            'A_mean': list(self.A_mean),
-            'A_std': list(self.A_std),
-            'B_mean': list(self.B_mean),
-            'B_std': list(self.B_std)
+            'current_train_iter': self.current_train_iter
         } 
         return config
 
