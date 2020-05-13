@@ -147,9 +147,9 @@ class Problem:
         #     + tf.reduce_mean(delta_Q, axis=[1,2]) / tf.reduce_mean(B[:,:,2:3] * B[:,:,1:2]**2, axis=[1,2])\
         #     + tf.reduce_mean(delta_V, axis=[1,2]) / tf.reduce_mean((1-B[:,:,2:3])*B[:,:,3:4]**2, axis=[1,2])
 
-        cost_per_sample =  tf.reduce_mean(delta_P, axis=[1,2]) / 1e9 \
-            + tf.reduce_mean(delta_Q, axis=[1,2]) / 1e9 \
-            + tf.reduce_mean(delta_V, axis=[1,2]) 
+        cost_per_sample =  tf.reduce_mean(delta_P, axis=[1,2]) / 1e7 \
+            + tf.reduce_mean(delta_Q, axis=[1,2]) / 1e7 \
+            + tf.reduce_mean(delta_V, axis=[1,2]) * 100
 
         #cost_per_sample = tf.reduce_mean(delta_V, axis=[1,2]) / tf.reduce_mean((1-B[:,:,2:3])*B[:,:,3:4]**2, axis=[1,2])
 
