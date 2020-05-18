@@ -314,6 +314,10 @@ class GraphNeuralSolver:
             # self.X[str(update+1)] = self.D(self.H[str(update+1)][:,:,:self.output_dim])
             #self.X[str(update+1)] = self.D(self.H[str(update+1)])
             self.X[str(update+1)] = self.D[str(update+1)](self.H[str(update+1)]) + self.initial_U_tf
+            try:
+                self.X[str(update+1)] = self.problem.filter_function(self.X[str(update+1)], self.A, self.B)
+            except:
+                pass
 
             # Compute the violation of the desired equation
             #self.loss[str(update+1)], self.error[str(update+1)] = self.loss_function(self.X[str(update+1)], self.A, self.B)

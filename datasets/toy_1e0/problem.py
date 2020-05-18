@@ -106,9 +106,9 @@ class Problem:
 
         # Normalization constants
         self.B_mean = np.array([1.557])
-        self.B_std = np.array([577])
+        self.B_std = np.array([577.])
         self.A_mean = np.array([0.0, 0.0, 8.74])
-        self.A_std = np.array([1.0, 1.0, 22])
+        self.A_std = np.array([1.0, 1.0, 22.])
 
     def cost_function(self, X, A, B):
 
