@@ -1,5 +1,6 @@
 # This file defines the interaction and counteraction forces, as well as their first order derivatives
 import tensorflow as tf
+import numpy as np
 
 # class Dimensions:
 
