@@ -141,6 +141,14 @@ class Problem:
         # How many equations should how for each node
         self.d_F = 1
 
+        self.initial_U = np.array([1.,0.])
+
+        # Normalization constants
+        self.B_mean = np.array([0, 0, 0])
+        self.B_std = np.array([1, 1, 1])
+        self.A_mean = np.array([0])
+        self.A_std = np.array([1])
+
     def cost_function(self, X, A, B):
 
         # Gather instances dimensions (samples, nodes and edges)
