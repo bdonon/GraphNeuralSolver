@@ -142,7 +142,7 @@ class Problem:
         # How many equations should how for each node
         self.d_F = 1
 
-        self.initial_U = np.array([1.,0.])
+        self.initial_U = np.array([0.])
 
         # Normalization constants
         self.B_mean = np.array([0., 0., 0.])
