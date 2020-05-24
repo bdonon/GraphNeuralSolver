@@ -9,9 +9,6 @@ import tensorflow as tf
 # Get rid of the deprecation warnings
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
-from plotly import graph_objs as go
-import matplotlib.pyplot as plt
-import matplotlib as mpl
 
 from tensorflow.python.lib.io import tf_record
 from tensorflow.core.util import event_pb2
