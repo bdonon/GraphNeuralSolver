@@ -343,7 +343,7 @@ class GraphNeuralSolver:
 
         # Gradient clipping to avoid 
         self.gradients, self.variables = zip(*self.optimizer.compute_gradients(self.total_loss))
-        self.gradients, _ = tf.clip_by_global_norm(self.gradients, 1)
+        self.gradients, _ = tf.clip_by_global_norm(self.gradients, 1e-2)
 
         self.opt_op = self.optimizer.apply_gradients(zip(self.gradients, self.variables))
 
