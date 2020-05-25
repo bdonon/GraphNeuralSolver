@@ -48,6 +48,12 @@ if __name__ == '__main__':
     # Importing test data
     A_np = np.load(os.path.join(args.data_path, 'A_test.npy'))
     B_np = np.load(os.path.join(args.data_path, 'B_test.npy'))
+
+    options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+    run_metadata = tf.RunMetadata()
+    profile_path = os.path.join(self.directory, 'profile')
+    i = 0
+
     
     for size in args.minibatch_size:
 
@@ -59,6 +65,12 @@ if __name__ == '__main__':
 
         # Use the model to predict
         X_pred = sess.run(model.X_final, feed_dict=feed_dict)
+        X_pred = sess.run(model.X_final, feed_dict=feed_dict, options=options, run_metadata=run_metadata)
+        fetched_timeline = timeline.Timeline(run_metadata.step_stats)
+        chrome_trace = fetched_timeline.generate_chrome_trace_format()
+        with open(profile_path+'_{}.json'.format(i), 'w') as f:
+            f.write(chrome_trace)
+        i += 1
 
         start  = time.time()
         X_pred = sess.run(model.X_final, feed_dict=feed_dict)
