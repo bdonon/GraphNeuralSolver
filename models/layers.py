@@ -177,10 +177,10 @@ class FullyConnected:
 
             if layer==self.hidden_layers-1:
                 # If last layer, then do not apply any non linearity
-                h = tf.matmul(h, self.W[str(layer)]) + self.b[str(layer)]
+                h = tf.matmul(h, self.W[str(layer)] * tf.ones([n_samples*n_elem, 1, 1])) + self.b[str(layer)] * tf.ones([n_samples*n_elem, 1, 1])
 
             else:
-                h = self.non_lin(tf.matmul(h, self.W[str(layer)])+ self.b[str(layer)])
+                h = self.non_lin(tf.matmul(h, self.W[str(layer)] * tf.ones([n_samples*n_elem, 1, 1]))+ self.b[str(layer)] * tf.ones([n_samples*n_elem, 1, 1]))
 
         return tf.reshape(h, [n_samples, n_elem, -1])
 
