@@ -147,7 +147,7 @@ class FullyConnected:
 
             # Initialize weight matrix
             self.W[str(layer)] = tf.compat.v1.get_variable(name='W_'+self.name+'_{}'.format(layer),
-                shape=[1, left_dim, right_dim],
+                shape=[left_dim, right_dim],
                 initializer=tf.contrib.layers.xavier_initializer(dtype=tf.float32, uniform=False, seed=2),
                 trainable=True,
                 dtype=tf.float32)
@@ -155,7 +155,7 @@ class FullyConnected:
 
             # Initialize bias vector
             self.b[str(layer)] = tf.compat.v1.get_variable(name='b_'+self.name+'_{}'.format(layer),
-                shape=[1, 1, right_dim],
+                shape=[1, right_dim],
                 initializer=tf.contrib.layers.xavier_initializer(dtype=tf.float32, uniform=False, seed=2),
                 trainable=True,
                 dtype=tf.float32)
@@ -170,17 +170,17 @@ class FullyConnected:
         n_elem = tf.shape(h)[1]
         d = tf.shape(h)[2]
 
-        h = tf.reshape(h, [-1, 1, d])
+        h = tf.reshape(h, [-1, d])
 
         for layer in range(self.hidden_layers):
             # Iterate over all layers
 
             if layer==self.hidden_layers-1:
                 # If last layer, then do not apply any non linearity
-                h = tf.matmul(h, self.W[str(layer)] * tf.ones([n_samples*n_elem, 1, 1])) + self.b[str(layer)] * tf.ones([n_samples*n_elem, 1, 1])
+                h = tf.matmul(h, self.W[str(layer)]) + self.b[str(layer)]
 
             else:
-                h = self.non_lin(tf.matmul(h, self.W[str(layer)] * tf.ones([n_samples*n_elem, 1, 1]))+ self.b[str(layer)] * tf.ones([n_samples*n_elem, 1, 1]))
+                h = self.non_lin(tf.matmul(h, self.W[str(layer)])+ self.b[str(layer)])
 
         return tf.reshape(h, [n_samples, n_elem, -1])
 
