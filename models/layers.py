@@ -148,7 +148,7 @@ class FullyConnected:
             # Initialize weight matrix
             self.W[str(layer)] = tf.compat.v1.get_variable(name='W_'+self.name+'_{}'.format(layer),
                 shape=[left_dim, right_dim],
-                initializer=tf.contrib.layers.xavier_initializer(dtype=tf.float32, uniform=False, seed=2),
+                initializer=tf.contrib.layers.xavier_initializer(dtype=tf.float32, uniform=False),
                 trainable=True,
                 dtype=tf.float32)
             self.trainable_variables.append(self.W[str(layer)])
@@ -156,7 +156,7 @@ class FullyConnected:
             # Initialize bias vector
             self.b[str(layer)] = tf.compat.v1.get_variable(name='b_'+self.name+'_{}'.format(layer),
                 shape=[1, right_dim],
-                initializer=tf.contrib.layers.xavier_initializer(dtype=tf.float32, uniform=False, seed=2),
+                initializer=tf.contrib.layers.xavier_initializer(dtype=tf.float32, uniform=False),
                 trainable=True,
                 dtype=tf.float32)
             self.trainable_variables.append(self.b[str(layer)])
