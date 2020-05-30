@@ -138,8 +138,8 @@ class Problem:
         Q_ij = A1_ij * X1_i * X1_j * tf.math.sin(X2_i - X2_j - A2_ij)
 
 
+        #delta_P = (1-B[:,:,4:5]) * (- B[:,:,0:1] + custom_scatter(indices_from, P_ij, [n_samples, n_nodes, 1]))**2
         delta_P = (1-B[:,:,4:5]) * (- B[:,:,0:1] + custom_scatter(indices_from, P_ij, [n_samples, n_nodes, 1]))**2
-        #delta_P = (- B[:,:,0:1] + custom_scatter(indices_from, P_ij, [n_samples, n_nodes, 1]))**2
         delta_Q = B[:,:,2:3] * (- B[:,:,1:2] + custom_scatter(indices_from, Q_ij, [n_samples, n_nodes, 1]))**2
         delta_V = (1-B[:,:,2:3]) * (X[:,:,0:1] - B[:,:,3:4])**2
 
@@ -147,8 +147,8 @@ class Problem:
         #     + tf.reduce_mean(delta_Q, axis=[1,2]) / tf.reduce_mean(B[:,:,2:3] * B[:,:,1:2]**2, axis=[1,2])\
         #     + tf.reduce_mean(delta_V, axis=[1,2]) / tf.reduce_mean((1-B[:,:,2:3])*B[:,:,3:4]**2, axis=[1,2])
 
-        cost_per_sample =  tf.reduce_mean(delta_P, axis=[1,2]) / 1e7 \
-            + tf.reduce_mean(delta_Q, axis=[1,2]) / 1e7 \
+        cost_per_sample =  tf.reduce_mean(delta_P, axis=[1,2]) / 1e4 \
+            + tf.reduce_mean(delta_Q, axis=[1,2]) / 1e4 \
             + tf.reduce_mean(delta_V, axis=[1,2]) 
 
         #cost_per_sample = tf.reduce_mean(delta_V, axis=[1,2]) / tf.reduce_mean((1-B[:,:,2:3])*B[:,:,3:4]**2, axis=[1,2])
